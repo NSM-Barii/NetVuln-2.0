@@ -1,0 +1,8 @@
+        subdomains = (
+            "www,admin,portal,intranet,vpn,sso,dev,dev1,dev2,test,test1,uat,staging,internal,corp,dashboard,crm,erp,git,jira,confluence,"
+        "jenkins,monitor,nagios,grafana,zabbix,kibana,status,helpdesk,support,api,assets,cdn,cdn1,logs,backup,old,archive,proxy,email,mail,smtp,pop,"
+        "imap,owa,mx,webmail,autodiscover,app,apps,web,webapp,frontend,backend,blog,shop,store,static,media,files,uploads,images,docs,docs2,content,"
+        "library,news,cms,wordpress,drupal,joomla,beta,release,v1,v2,legacy,billing,payments,payment,invoice,accounting,checkout,cart,pay,wallet,finance"
+        ",secure,qa,qa1,sandbox,preprod,demo,trial,build,ci,cd,pipeline,auth,login,logout,admin-panel,adminportal,manager,management,firewall,waf,ids,"
+        "vault,key,router,switch,gateway,modem,printer,camera,iot,device,nas,nvr,dvr,uplink,wan,lan,edge,ftp,svn,db,db1,sql,mysql,mongo,postgres,temp".split(",")
+        ) 
