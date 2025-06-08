@@ -128,27 +128,28 @@ class MainUI():
             f"      {color_out}[4] {color_in}About\n"
             f"      {color_out}[5] {color_in}Help\n"
             f"      {color_out}[6] {color_in}Settings\n\n"
-            f"      {color_out}[6] {color_in}EXIT\n"
+            f"      {color_out}[7] {color_in}EXIT\n"
 
         ) 
         
         # CREATE CLEAR SCREEN OPTIONS
-        cc = ["1", "2"]
+        cc = ["1"]
         error = False
+        construction = False
     
-
-
-
-
         console.print(options)
 
 
         while True:
 
-            
             # FOR ERRORS
             if error:
-                console.print(f"\n[bold red]    EHH:[yellow] {choice}[bold red] Is not a valid choice, please pick between(1-7)!")
+                console.print(f"\n[bold red]    EHH:[yellow] {choice}[bold red] Is not a valid choice, please pick between [bold green](1-7)!")
+            
+            elif construction:
+                console.print("\n    This option is under construction, come back later", style="yellow")
+                construction = False
+
             else:
                 print("")
 
@@ -164,39 +165,38 @@ class MainUI():
             if choice == "1":
                 Module_Controller.controller()
 
-
                 break
 
 
             elif choice == "2":
-                console.print("This option is under construction, come back later", style="yellow")
+                construction = True
 
             
             # FOR SCAN RESULTS
             elif choice == "3":
-                console.print("This option is under construction, come back later", style="yellow")
+                construction = True
 
 
             
             # ABOUT 
             elif choice == "4":
-                console.print("This option is under construction, come back later", style="yellow")
+                construction = True
 
             
 
             # HELP
             elif choice == "5":
-                console.print("This option is under construction, come back later", style="yellow")
+                construction = True
             
 
             # SETTINGS
             elif choice == "6":
-                console.print("This option is under construction, come back later", style="yellow")
+                construction = True
 
 
             # FOR EXIT
             elif choice == "7":
-                console.print("See you later",style="bold red")
+                console.print("\n    See you later.....",style="bold blue")
                 time.sleep(2)
                 exit()
            

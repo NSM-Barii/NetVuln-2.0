@@ -42,8 +42,22 @@ class Requests_Directory_Scanner():
     
     # CLASS VARIABLES
     dirs_up = 0
-    subs_with_dirs = 0
+    dirs_text = ""
+    errors = 0 
     current_sub_domain = []
+    delete = False          
+
+    # TRACK TOTAL TIME
+    time_total_start = 0
+    
+    # TRACK THREAD LOOP
+    subs_given = 0
+    subs_finished = 0
+    baseline_len_map = ''  # BASELINE FOR 404 WEBPAGES 
+
+    # THIS WILL BE USED TO STORE RESULTS
+    results_dir_json = {}
+    results_dir_txt = []
 
 
     def __init__(self):
@@ -51,65 +65,91 @@ class Requests_Directory_Scanner():
 
 
     @classmethod
-    def directory_scanner(cls, sub_domain: str, dir:str, table, session):
+    def directory_scanner(cls, sub_domain: str, dir: str, table, session):
         """This method will be responsible for performing dir scanning"""
 
-
         verbose = False
-        
 
         try:
+
+            # MAKE FAKE REQUEST TO 404 PAGE TO GET A BASELINE
+            if cls.baseline_len_map == "":
+                cls.baseline_len_map = {}
+
+            if sub_domain not in cls.baseline_len_map:
+                fake_path = f"https://{sub_domain}/this_should_not_exist_404_test"
+                with session as sus:
+                    baseline_response = sus.get(url=fake_path, timeout=3, allow_redirects=True)
+                cls.baseline_len_map[sub_domain] = len(baseline_response.text)
+
+            baseline_len = cls.baseline_len_map[sub_domain]
+
+
+            # PERFORM DIR SCAN
             url = f"https://{sub_domain}/{dir}"
-            
             with session as sus:
                 response = sus.get(url=url, timeout=3, allow_redirects=True)
 
-            
+            content_len = len(response.text)
+           
 
-            if response.status_code == 200:
-
+            # CHECK TO MAKE SURE RESPONSE STATUS CODE IS VALID
+            if response.status_code == 200 and abs(content_len - baseline_len) > 20:
 
                 if verbose:
                     console.print(f"[bold green]Status Code:[yellow] {response.status_code}[/yellow]  -->  [bold red]{url}")
                     time.sleep(5)
-                
-                
+
                 else:
-                    table.add_row(f"{sub_domain}", "-->", f"{url}")
+                    if cls.delete == False and cls.dirs_up < 25:
+                        table.add_row(f"{sub_domain}", "-->", f"{url}")
+                    
+                    elif cls.delete == False:
+                        cls.delete = True
+                        console.print(f"Found over 25 dir's no longer outputting to terminal, check scan results in saved data for more info", style="bold red")
 
 
                     # APPEND TOTAL DIRS FOUND
                     cls.dirs_up += 1
-                
-                
+
+
+
+                    # SAVE DATA
+                    cls.results_dir_json[dir] = (f"{url} --> Status Code:{response.status_code}")   # JSON
+                    cls.results_dir_txt.append(f"Dir: {url} --> Status Code: {response.status_code}")  # TXT
+
+
                 # USE THIS TO TAKE ADVANTAGE OF THE CLASS METHOD
                 if sub_domain.split('.')[0] not in cls.current_sub_domain:
                     cls.current_sub_domain.append(sub_domain.split('.')[0])
-                    console.print(cls.current_sub_domain)
 
+
+                    if verbose:
+                        console.print(cls.results_dir_txt)
+                        console.print(cls.results_dir_json)
 
 
             else:
-
                 if verbose:
-                    console.print(f"[bold red]Status Code:[yellow] {response}  -->  [bold blue]{url}", style="bold red")
-
-
+                    console.print(f"[bold red]False Positive/404-Like Response --> {url} (len: {content_len})", style="bold red")
+        
 
         # CATCH ERRORS
         except requests.Timeout as e:
-            console.print(f"[bold red]Timeout Error:[yellow] {e}")
-
+            if verbose:
+                console.print(f"[bold red]Timeout Error:[yellow] {e}")
+            cls.errors += 1
 
         except requests.ConnectionError as e:
-            console.print(f"[bold red]Connection Error:[yellow] {e}")
-        
+            if verbose:
+                console.print(f"[bold red]Connection Error:[yellow] {e}")
+            cls.errors += 1
 
         except Exception as e:
-            console.print(f"[bold red]Exception Error:[yellow] {e}")
- 
+            if verbose:
+                console.print(f"[bold red]Exception Error:[yellow] {e}")
+            cls.errors += 1
 
-     
 
     @classmethod
     def get_directories(cls, dir_path="1"):
@@ -152,7 +192,8 @@ class Requests_Directory_Scanner():
 
                         console.print(f"\n\n[bold green]Successfully Retrieved:[/bold green] [bold red]{paths[dir_path]}[/bold red] from [bold blue]{path} \n")
                         time.sleep(1)
-
+                        
+                        cls.dirs_text = content
                         return content
                     
                 
@@ -179,23 +220,34 @@ class Requests_Directory_Scanner():
                 console.print(f"[bold red]Exception Error:[yellow] {e}")
 
 
-
-
     @classmethod
     def threader(cls, sub_domain: str, thread_count=250, dir_path="1"):
         """This method will be responsible for using the directory_scanner <-- and threading through it"""
-
-        
+         
 
         # PULL DIR AND STORE IT WITHIN A LIST
+        if cls.dirs_text == "":
+            directories = Requests_Directory_Scanner.get_directories(dir_path=str(dir_path))
+            #total_directories = len(directories)
 
-        directories = Requests_Directory_Scanner.get_directories(dir_path=str(dir_path))
-        total_directories = len(directories)
+            # TRACK TIME
+            cls.time_total_start = time.time()
+
+        
+        # NO NEED TO KEEP PULLING INFO
+        else:
+            directories = cls.dirs_text
+           # total_directories = len(cls.dirs_text)
+            cls.delete = False
+
+        
+        # GET SUB
+        sub = sub_domain.split('.')[0]
 
         
         
         # CREATE TABLE FOR INFO
-        table = Table(title="Directory Scan", title_style="bold red", header_style="bold red", style="bold purple")
+        table = Table(title=f"Directory Scan --> {sub}", title_style="bold red", header_style="bold red", style="bold purple")
         table.add_column("Domain", style="bold blue")
         table.add_column("-->", style="bold red")
         table.add_column("Directory", style="bold green")
@@ -203,37 +255,74 @@ class Requests_Directory_Scanner():
 
         # KEEP TRACK OF TIME
         time_start = time.time()
+        cls.delete = False
+        lol = 0
+        delay = .5
+        
+        try:
+            with Live(table, console=console, refresh_per_second=1, transient=cls.delete ): 
 
-        with Live(table, console=console, refresh_per_second=100, transient=False): 
+                # REQUEST SESSION
+                with requests.Session() as sus:
+                    with ThreadPoolExecutor(max_workers=thread_count) as executor:
+                        for dir in directories:
+                            executor.submit(Requests_Directory_Scanner.directory_scanner, sub_domain, dir, table, sus)
+                            
+                            # SLOW DOWN BUDDY // LOL
+                            if lol == 30:
+                                time.sleep(delay)
+                                lol = 0
+                            
+                            lol += 1
 
-            # REQUEST SESSION
-            with requests.Session() as sus:
-                with ThreadPoolExecutor(max_workers=thread_count) as executor:
-                    for dir in directories:
-                        executor.submit(Requests_Directory_Scanner.directory_scanner, sub_domain, dir, table, sus)
+                        
+        
+        except Exception as e:
+            console.print(f"[bold red]Exception Error:[yellow] {e}")
                 
 
 
         # GET FINAL TIME
         time_took = time.time() - time_start
 
+
+        # TOTAL TIME
+        cls.subs_finished += 1
+
+        # PRINT DIR INFO
+        console.print(f"[bold blue]Total dirs found:[/bold blue] {cls.dirs_up}/{len(cls.dirs_text)}")
+
+
+        # OUTPUT OR CONTINUE
+        if cls.subs_given == cls.subs_finished:
+
+            time_total_took = time.time() - cls.time_total_start
+
+            
+            console.print(f"\n\n\n[bold red]Subs with Active Dirs:[bold green] {cls.current_sub_domain}\n")
+            # PANEL FOR FINAL STATS
+            results = (
+                f"[bold green]Total Sub-domains with active Directories:[/bold green] {len(cls.current_sub_domain)} out of {(cls.subs_given)}    "
+                #f"[bold green]Total Directories Found:[/bold green] {cls.dirs_up}/{total_directories}    "
+                f"[yellow]Total Threads Used:[/yellow] {thread_count}    "    
+                f"[bold red]Total Errors Occurred:[/bold red] {cls.errors}    "    
+                f"[bold blue]Total Elapsed Time:[/bold blue] {time_total_took:.2f} Seconds"
+            )
         
-        # PANEL FOR FINAL STATS
-        results = (
-            f"[bold green]Total Sub-domains with active Directories:[/bold green] {len(cls.current_sub_domain)}    "
-            f"[bold green]Total Directories Found:[/bold green] {cls.dirs_up}/{total_directories}    "
-            f"[yellow]Total Threads Used:[/yellow] {thread_count}    "    
-            f"[bold blue]Elapsed Time:[/bold blue] {time_took:.2f} Seconds"
-        )
+        
+        
+            panel = Panel(title="Scan Results", style="bold purple", expand=False, renderable=results, border_style="bold green")
+            console.print(panel)
+            cls.errors = 0
+        
 
-        panel = Panel(title="Scan Results", style="bold purple", expand=False, renderable=results, border_style="bold green")
-        console.print(panel)
+        else:
+            print("\n")
 
 
-        # RESET DIRECTORIES FOUND 
+        # RESET DIRECTORIES FOUND  // ERRORS
         cls.dirs_up = 0
-
-
+        cls.delete = False
 
     
     @classmethod
@@ -241,19 +330,37 @@ class Requests_Directory_Scanner():
         """This method will be responsible for handling class wide logic"""
 
 
+        # ERROR DESTROYER
+        verbose = False
+
+
+        # FOR THREADER PANEL CONTROL
+        cls.subs_given = len(sub_domains)
+
 
         # SET PARAMS
         thread_count = 500
         dir_path = "1"
-
+        delay = .2
 
         try:
             
             # ITERATE THROUGH EACH SUBDOMAIN WE HAVE AND FOR EACH ITERATE THROUGH DIRECTORIES
             for domain in sub_domains:
-
+                
+                # DELAY TO PREVENT OVERWHELMING
+                time.sleep(delay)
+                
                 Requests_Directory_Scanner.threader(sub_domain=domain, thread_count=thread_count, dir_path=dir_path)
 
+                
+            if verbose:
+                console.print(f"JSON Results: {cls.results_dir_json}")
+                console.print(f"TEXT Results: {cls.results_dir_txt}")
+
+            
+            # RETURN SAVE DATA
+            return cls.results_dir_json, cls.results_dir_txt
         
 
         except Exception as e:
@@ -261,12 +368,20 @@ class Requests_Directory_Scanner():
 
 
 
+
+# THIS CLASS IS DEAPPRECIATED // USE THE Request_Directory_Scanner  for functional directory enumeration
 class Resolver_Directory_Scanner():
+
     """This class will be responsible for performing directory lookups using the dns.resolver libary"""
 
     # CLASS VARIABLES
     dirs_up = 0
     current_sub_domain = []
+
+
+    # SAVE DIRS FOUND // INFO
+    found_dirs_txt = []
+    found_dirs_json = {}
 
     def __init__(self):
         pass
@@ -296,6 +411,10 @@ class Resolver_Directory_Scanner():
             if rdata:
                 for r in rdata:
                     table.add_row(f"{sub_domain}", "-->" , f"{r}" )
+
+
+                    # SAVE DATA
+                    #cls.found_dirs_txt.append(f"")
         
 
         except Exception as e:
@@ -396,10 +515,16 @@ class Resolver_Directory_Scanner():
         # KEEP TRACK OF TIME
         time_start = time.time()
 
-        with Live(table, console=console, refresh_per_second=8, transient=False): 
+        with Live(table, console=console, refresh_per_second=8, transient=False) as live: 
             with ThreadPoolExecutor(max_workers=thread_count) as executor:
                 for dir in directories:
                     executor.submit(Resolver_Directory_Scanner.directory_resolver, sub_domain, dir, table)
+                
+                    if cls.current_sub_domain > 500:
+                        live.transient = True
+                        console.print("False Positive Triggered, Results will be Destroyed", style="bold red")
+
+
                 
 
 
@@ -435,8 +560,16 @@ class Resolver_Directory_Scanner():
         dir_path = "1"
 
 
-        for domain in sub_domains:
-            Resolver_Directory_Scanner.threader(sub_domain=domain,thread_count=thread_count, dir_path=dir_path)
+        # CHECK FOR IF SUBDOMAINS WAS GIVEN
+        if sub_domains:
+
+            for domain in sub_domains:
+                Resolver_Directory_Scanner.threader(sub_domain=domain,thread_count=thread_count, dir_path=dir_path)
+        
+        
+        # IF NOTHING WAS GIVEN 
+        else:
+            console.print("[bold red]Dir Enumeration Skipped Due:[yellow] to no Subs given")
             
 
 

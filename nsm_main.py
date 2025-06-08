@@ -113,3 +113,69 @@ class  Import_Handler():
 
 
 
+def learn():
+
+    import socket
+    from rich.panel import Panel
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+
+    ip = socket.gethostbyname("google.com")
+    port = 25
+
+
+
+    # TABLE
+    table = Table(title="Port scan", style="bold red", border_style="bold purple")
+    table.add_column("Port", style="bold blue")
+    table.add_column("Service", style="yellow")
+    table.add_column("Status", style="bold green")
+
+
+
+    ports = [20, 21, 22, 23, 25, 53, 80, 110, 143, 443, 3389]
+
+    for port in ports:
+
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            
+
+            try:
+                s.settimeout(1)
+                result = s.connect_ex((ip, port))
+
+
+                if result == 0:
+
+                    status = "OPEN"
+
+                    service = socket.getservbyport(port)
+
+                    table.add_row(f"{port}", f"{service}", f'{status}')
+
+                
+                
+
+                
+
+
+            
+
+            except Exception as e:
+                console.print(e)
+
+            
+
+    console.print(table)
+
+
+    
+
+
+
+
+path = "​​C:\Windows\System32\drivers\etc"
+

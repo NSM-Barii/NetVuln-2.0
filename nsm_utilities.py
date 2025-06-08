@@ -94,26 +94,29 @@ class NetTilities():
             
             
             except requests.Timeout as e:
-                console.input(f"[bold red]Requests Timeout Error:[yellow] {e}")
+                console.print(f"[bold red]Requests Timeout Error:[yellow] {e}")
 
 
-                console.input(f"Press [{color_1}]Enter[/{color_1}] to [{color_1}]Re-Try[/{color_1}] or [{color_2}]Ctrl[/{color_2}] + [{color_2}]C[/{color_2}] to [{color_2}]Exit:[/{color_2}] ")
+                console.input(f"\nPress [{color_1}]Enter[/{color_1}] to [{color_1}]Re-Try[/{color_1}] or [{color_2}]Ctrl[/{color_2}] + [{color_2}]C[/{color_2}] to [{color_2}]Exit:[/{color_2}] ")
 
 
             except requests.ConnectionError as e:
-                console.input(f"[bold red]Requests Connection Error:[yellow] {e}")
+                console.print(f"[bold red]Requests Connection Error:[yellow] {e}")
 
 
-            
+                console.input(f"\nPress [{color_1}]Enter[/{color_1}] to [{color_1}]Re-Try[/{color_1}] or [{color_2}]Ctrl[/{color_2}] + [{color_2}]C[/{color_2}] to [{color_2}]Exit:[/{color_2}] ")
+
+
             except KeyboardInterrupt as e:
                 console.print("[bold green]Sorry to see you go, [yellow]please come back with better [bold red]INTERNET")
                 time.sleep(3)
 
             
             except Exception as e:
-                console.input(f"[bold red]Exception Error:[yellow] {e}")
+                console.print(f"[bold red]Exception Error:[yellow] {e}")
 
-    
+                console.input(f"\nPress [{color_1}]Enter[/{color_1}] to [{color_1}]Re-Try[/{color_1}] or [{color_2}]Ctrl[/{color_2}] + [{color_2}]C[/{color_2}] to [{color_2}]Exit:[/{color_2}] ")
+
     
     @staticmethod
     def talk_to_ai(prompt: str, role_user = False, role_system = False, max_characters = 400):
@@ -127,9 +130,24 @@ class NetTilities():
             api_key_ai = File_Handler.get_api_key()["api_key_openai"]
 
 
+
+            # ROLES
+            roles = {
+                1: "You are a highly skilled bug bounty hunter and cybersecurity analyst. "
+                    "Your job is to review scan results, network info, service banners, subdomain directories, and known CVEs, "
+                    "and help identify real-world exploitable vulnerabilities. "
+                    "Always focus on actionable insights, especially ones that could lead to: RCE, XSS, SQLi, IDOR, SSRF, or authentication flaws. "
+                    "If a port or directory might expose a login page, hidden file, or API endpoint — highlight that. "
+                    "If something looks like a false positive, say so. "
+                    "Always provide follow-up actions or payload ideas that could confirm the vuln in a real bug bounty scenario.",
+
+                2: "You are a cybersecurity anyalasis and i need you to summarize the results i give you"
+                }
+
+
             # AI MESSAGE VARIABLES
-            role_system = role_system if role_system else "You are a cybersecurity anyalasis and i need you to summarize the results i give you"
-            role_user = role_user if role_user else "Can you simply explain this for me plz like im a baby, u dont have to repeat back to me things i already know like subs found"
+            role_system = role_system if role_system else roles[1]
+            role_user = role_user if role_user else "Ok now using all the scan info i just provided you tell me whats the next best course in action i should take with this vulnerability scan. and are u able to do web lookups to help me find more info ?"
                 
 
             
@@ -142,29 +160,33 @@ class NetTilities():
             threading.Thread(target=Utilities.tts, args=("ChatGPT Said, Now proccessing information sir", ), daemon=True).start()
             console.print("[bold green]ChatGPT:[bold blue] Now getting to work sir")
             
-        
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": f"{role_system}"},
-                    {"role": "user", "content": f"{role_user}" f"{prompt}"}
-                ],
-                temperature=0.5,
-
-                max_tokens=max_characters
-            )
             
-            # CLEAN UP AND RETURN RESPONSE
-            response_clean = response.choices[0].message.content.strip()
-            return response_clean
-        
-        
-        
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": f"{role_system}"},
+                        {"role": "user", "content": f"{role_user}" f"{prompt}"}
+                    ],
+                    temperature=0.5,
+
+                    max_tokens=max_characters
+                )
+                
+                # CLEAN UP AND RETURN RESPONSE
+                response_clean = response.choices[0].message.content.strip()
+                return response_clean
+            
+            
+            except Exception as e:
+                console.print(f"[bold red]AI Exception Error:[yellow] {e}")
+
+
+        # DESTROY ERRORS
         except Exception as e:
             console.print(f"[bold red]Exception Error:[yellow] {e}")
 
     
-
     @staticmethod
     def get_geo_info(target_ip: str):
         """This method will be responsible for taking the targets ip and returning geo ip info along with more"""
@@ -173,6 +195,8 @@ class NetTilities():
         # GET API KEY
         print("\n")
         api_key = File_Handler.get_api_key()["api_key_ipinfo"]
+        data = {}
+        text = []
 
         if api_key:
             url = f"https://ipinfo.io/{target_ip}?token={api_key}"
@@ -200,9 +224,18 @@ class NetTilities():
                 for key, value in response.json().items():
 
                     table.add_row(f"{key}", "-->", f"{value}")
+                    data[key] = value
+                    text.append(f"{key} --> {value}")
 
-                
+
                 console.print(table)
+
+
+                # FOR SAVING INFO
+                text = '\n'.join(text)
+                return [data, text]
+
+                 
 
             
             else:
@@ -222,7 +255,6 @@ class NetTilities():
         except Exception as e:
             console.print(f"[bold red]Exception Error:[yellow]{e}")
         
-    
 
     @staticmethod    # API ERRORS
     def get_shodan_info(target_ip:str):
@@ -260,7 +292,6 @@ class NetTilities():
         except Exception as e:
             console.print(f"[bold red]Exception Error:[yellow] {e}")
 
-    
 
     @staticmethod    # NOT YET FINISHED
     def get_WPSscan_info():
@@ -304,8 +335,7 @@ class NetTilities():
         except Exception as e:
             console.print(f"[bold red]Exception Error:[yellow] {e}")
 
-    
-    
+      
     @staticmethod
     def get_vulners_info(target:str):
         """This method will be responsible for pulling info from vulners"""
@@ -462,6 +492,7 @@ class Utilities():
     def tts(say, voice_rate:int = 20, voice_sound:int = 1, lock=False):
         """This will be used to output tts through the users speakers"""
 
+
         # CREATE OBJECT
         engine = pyttsx3.init()
         
@@ -493,8 +524,14 @@ class Utilities():
             
             # NO THREAD LOCKER
             else:
-                engine.say(say)
-                engine.runAndWait()
+                if engine.isBusy():
+                    engine.stop()
+                    engine.say(say)
+                    engine.runAndWait()
+                
+                else:
+                    engine.say(say)
+                    engine.runAndWait()
             
             
 
@@ -666,28 +703,32 @@ class File_Handler():
 
 
         # ERROR DEBUGGING
-        verbose = False
-
-        
+        verbose = True
+     
 
         # SAVE IP AND OR DOMAIN
         if save_type == 1:
             cls.ip_domain = save_data
+
+        
+        # SAVE GEO INFO // IPINFO
+        elif save_type == 2:
+            cls.ip_info = save_data
         
 
         # SAVE OPEN PORTS FOUND
-        elif save_type == 2:
+        elif save_type == 3:
             cls.ports_open = save_data
         
 
         # SAVE SUBS FOUND
-        elif save_type == 3:
-            cls.sub_found = save_data
+        elif save_type == 4:
+            cls.subs_found = save_data
          
         
         # SAVE DIRS FOUND
-        elif save_type == 4:
-            cls.sub_found = save_data
+        elif save_type == 5:
+            cls.dirs_found = save_data
 
         
 
@@ -696,19 +737,24 @@ class File_Handler():
  
             results = {
                 "domain_ip_resolution": cls.ip_domain,
-                "open_ports": cls.ports_open,
-                "subdomains_found": cls.sub_found,
-                "directories_found": "Not Yet in Use"
+                "ipinfo": cls.ip_info,
+                "ports_found": cls.ports_open,
+                "subdomains_found": cls.subs_found,
+                "directories_found": cls.dirs_found
             }
             
             if verbose:
-                console.print(f"\n\n[bold green]Successfully aggragatted results:[white] {results}", style="bold green")
+                #console.print(f"\n\n[bold green]Successfully aggragatted results:[white] {results}", style="bold green")
+
+                console.print("\n\n",results)
 
 
             # RESET CLS VALUES
             cls.ip_domain = ()
+            cls.ip_info = ()
             cls.ports_open = []
             cls.sub_found = []
+            cls.dirs_found = []
 
             if verbose:
                 console.print(f"Successfully cleaned class values", style="bold red")
@@ -716,7 +762,7 @@ class File_Handler():
 
             return results
         
-        #console.print(f"[bold green]Successfully Saved:[bold blue] {save_data}")
+
 
 
 

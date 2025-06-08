@@ -292,23 +292,37 @@ class Socket_Port_Scanner():
 
 
 
-        # SPEAK RESULTS ALOUD
-        say = f"Successfully completed Port scan, with a total of: {self.ports_open} Ports Open, {self.ports_filtered} Ports Filtered, and {self.ports_closed} Ports Closed"
+        # SPEAK RESULTS ALOU
+        use = False
+        if use:
+            say = f"Successfully completed Port scan, with a total of: {self.ports_open} Ports Open, {self.ports_filtered} Ports Filtered, and {self.ports_closed} Ports Closed"
+        else:
+            say = f"Successfully completed port scan"
         Utilities.tts(say=say, voice_rate=5)
 
-
+        
         ports_results = (
                         f"Total Open Ports: {self.ports_open}\n"
-                         f"Total Filtered Ports: {self.ports_filtered}\n",
-                         f"Total Closed Ports: {self.ports_closed}\n\n",
-                         f"Active Ports with Service: {self.ports_found_with_service}"
+                         f"Total Filtered Ports: {self.ports_filtered}",
+                         f"Total Closed Ports: {self.ports_closed}\n",
+                         f"Open Ports with Service: {self.ports_found_with_service}",
+                         f"Filtered Ports with Service: Not Bound"
                          
                          )
+        ports_results = '\n'.join(ports_results)
+        
+
+        results = {
+            f"Total_Open_Ports": self.ports_open,
+            f"Total_Filtered_Ports": self.ports_filtered,
+            f"Total_Closed_Ports": self.ports_closed,
+            f"Active_Ports_with_Service": self.ports_found_with_service                         
+        }
 
 
 
         # PUSH RESULTS
-        return ports_results
+        return [results, ports_results]
         
 
     
@@ -568,6 +582,10 @@ class Requests_Subdomain_Scanner():
 
         # START TIMER
         time_start = time.time()
+        delay = .3
+        lol = 0
+
+        
 
 
         # BEGIN THREADING SCAN    
@@ -577,6 +595,14 @@ class Requests_Subdomain_Scanner():
                         
                     try:
                         for sub in subdomains:
+                            
+                            # THIS WILL BE USED TO LIMIT THE AMOUNT OF REQUESTS SENT PER SECOND
+                            if lol == 30: 
+
+                                time.sleep(delay)
+                                lol = 0
+
+                            lol += 1
 
                             current += 1
                             executor.submit(sub_scanner.subdomain_scanner, sub, domain, current, subdomain_count, table, sus)
@@ -601,7 +627,11 @@ class Requests_Subdomain_Scanner():
 
         
         # SPEAK ALOUD THE RESULTS
-        say = f"Successfully completed subdomain enumeration scan, with a total of: {cls.subs_up} out of {subdomain_count} subdomains found"
+        use = False
+        if use:
+            say = f"Successfully completed subdomain enumeration scan, with a total of: {cls.subs_up} out of {subdomain_count} subdomains found"
+        else:
+            say = f"Successfully completed subdomain enumeration scan"
         Utilities.tts(say=say, voice_rate=10)
 
 
@@ -763,7 +793,9 @@ class Module_Controller():
     @staticmethod
     def controller():
         """This will be in charge of Multi-Module Logic"""
+        
 
+        # USER VALIDATION CHECK
         ip, domain = Module_Controller.get_ip_domain()
 
 
@@ -775,34 +807,38 @@ class Module_Controller():
 
         
         # GET GEO INFO N MORE
-        geo_info = NetTilities.get_geo_info(target_ip=ip.strip())
+        results_geo_info = NetTilities.get_geo_info(target_ip=ip.strip())
         
 
         # PERFORM PORT SCAN
-        open_ports = Socket_Port_Scanner.main(target=ip)
+        results_open_ports = Socket_Port_Scanner.main(target=ip)
 
 
         # PERFORM SUBDOMAIN ENUMERATION
-        sub_domains = Requests_Subdomain_Scanner.main(target=domain)
-
-
-        # LOG RESULTS
-        File_Handler.save_scan_results(save_data=(domain, ip), save_type=1)
-        File_Handler.save_scan_results(save_data=open_ports, save_type=2)
-        File_Handler.save_scan_results(save_data=sub_domains, save_type=3)
-        #File_Handler.save_scan_results(save_data=False, save_type=10)
-
-
-        # NOW TO FEED SAVED SCAN INFO TO AI
-        AI_GENERATED_SUMMARY = NetTilities.talk_to_ai(prompt=File_Handler.save_scan_results(save_data=False,save_type=10), max_characters=550)
-        console.print(AI_GENERATED_SUMMARY)
-        Utilities.tts(say=AI_GENERATED_SUMMARY, voice_rate=5)
+        results_sub_domains = Requests_Subdomain_Scanner.main(target=domain)
 
 
         # PERFORM DIRECTORY ENUMERATION
-        console.input("\n[bold green]Press Enter to Perform Dir Enum: ")
-        Requests_Directory_Scanner.main(sub_domains=sub_domains)
+        results_directories = Requests_Directory_Scanner.main(sub_domains=results_sub_domains)
 
+
+
+        # LOG RESULTS
+        File_Handler.save_scan_results(save_data=(domain, ip), save_type=1)     # DOMAIN --> IP RESOLUTION
+        File_Handler.save_scan_results(save_data=results_geo_info[0], save_type=2)  # IPINFO DATA
+        File_Handler.save_scan_results(save_data=results_open_ports[0], save_type=3) # PORTS DATA
+        File_Handler.save_scan_results(save_data=results_sub_domains, save_type=4) # SUBDOMAINS DATA
+        File_Handler.save_scan_results(save_data=results_directories[0], save_type=5)  # DIRECTORY DATA
+        
+        
+        # NOW TO FEED SAVED SCAN INFO TO AI
+        console.input("\n\n[bold green]Press Enter to go to AI: ")
+        AI_GENERATED_SUMMARY = NetTilities.talk_to_ai(prompt=File_Handler.save_scan_results(save_data=False,save_type=10), max_characters=1500)
+        console.print(AI_GENERATED_SUMMARY)
+        Utilities.tts(say=AI_GENERATED_SUMMARY, voice_rate=5)
+    
+        
+        console.input("\n\n[bold red]Press Enter to Exit: ")
 
 
 
