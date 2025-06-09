@@ -36,9 +36,9 @@ NetVuln 2.0 queries external threat intelligence APIs to enrich its findings:
 |-----|---------|
 | `ipinfo.io` | IP Geolocation & ASN Lookup |
 | `Shodan` | Open Port & Device Fingerprinting |
-| `NVD` / `vulners.com` | CVE + Exploit Enrichment |  ( COMING SOON )
-| `cve.circl.lu` | Cross-source vulnerability feed | ( COMING SOON )
-| `wpscan` | WordPress-specific enumeration |        ( COMING SOON )
+| `NVD` / `vulners.com` | CVE + Exploit Enrichment |  ( COMING SOON )  |
+| `cve.circl.lu` | Cross-source vulnerability feed | ( COMING SOON )   |
+| `wpscan` | WordPress-specific enumeration |        ( COMING SOON )  |
 
 ---
 
