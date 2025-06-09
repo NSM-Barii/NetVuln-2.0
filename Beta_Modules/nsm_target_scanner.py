@@ -23,6 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 # NSM IMPORTS
 from nsm_utilities import Utilities, File_Handler, NetTilities
 from nsm_directory_scanner import Requests_Directory_Scanner
+from nsm_vulnerability_scanner import Nmap_Vulnerability_Scanner
 
 
 
@@ -337,11 +338,11 @@ class Socket_Port_Scanner():
         
 
         # GET THREAD COUNT
-        thread_count = 500
+        thread_count = 2000
         
 
         # GET SCAN TYPE
-        scan_type = 1
+        scan_type = 2
 
 
         return Socket_Port_Scanner().threader(ip=target, thread_count=thread_count, scan_type=scan_type)
@@ -660,7 +661,7 @@ class Requests_Subdomain_Scanner():
         
 
         else:
-            console.print("[bold red]Sub-Domain Enumeration Skipped Due:[yellow] to False Domain given")
+            console.print("\n[bold red]Sub-Domain Enumeration Skipped Due To:[yellow] False Domain given")
 
 
 
@@ -671,8 +672,45 @@ class Module_Controller():
         pass
 
 
+    
     @staticmethod
-    def get_domain(target: str):
+    def get_domain_newer(target: str):
+        """This will be the better and up-to-date method to help get domain from ip"""
+        
+
+        # MAKE THIS TRUE IF U WANT THE USER TO ONLY BE ABLE TO SCAN FOR ACTUAL DOMAINS ONLY // MIGHT HAVE TO CHANGE CLASS LOGIC
+        domain_only = False
+
+
+
+        # COMPLETELY BACKWARDS BUT IT WORKS LOL
+        try:
+            result = ipaddress.ip_address(str(target))
+            
+            if result and domain_only == False:
+                console.print(f"[bold red]IP Address Detected:[/bold red] [yellow]Failed To Validate Domain")
+                return False
+            
+            elif result and domain_only == True:
+                console.print(f"[bold green]Successfully Validated IP Address")
+                return target
+        
+
+
+        except Exception as e:
+
+            if domain_only:
+                console.print(f"[bold red]Exception Error:[yellow] {e}")
+
+                return False
+            
+            else:
+                console.print(f"[bold green]Successfully Validated Domain")
+                return target
+        
+
+    @staticmethod
+    def get_domain_request(target: str):
         """This will be a helper method for get_ip_domain <- to check if the user has provided a domain"""
 
         
@@ -682,6 +720,7 @@ class Module_Controller():
       
         
         try:
+            
             
             url = f"https://{target}"
 
@@ -762,7 +801,7 @@ class Module_Controller():
                 
 
                 # CHECK TO SEE IF THERE WAS A VALID DOMAIN GIVEN
-                domain = Module_Controller.get_domain(target)
+                domain = Module_Controller.get_domain_newer(target)
 
                 
                 # PRINT CONFIRMATION
@@ -822,6 +861,10 @@ class Module_Controller():
         results_directories = Requests_Directory_Scanner.main(sub_domains=results_sub_domains)
 
 
+        # PERFORM NMAP VULNERABILITY SCAN // NSE
+        results_nmap = Nmap_Vulnerability_Scanner.nmap_vuln_scanner(target=ip) 
+
+
 
         # LOG RESULTS
         File_Handler.save_scan_results(save_data=(domain, ip), save_type=1)     # DOMAIN --> IP RESOLUTION
@@ -829,6 +872,7 @@ class Module_Controller():
         File_Handler.save_scan_results(save_data=results_open_ports[0], save_type=3) # PORTS DATA
         File_Handler.save_scan_results(save_data=results_sub_domains, save_type=4) # SUBDOMAINS DATA
         File_Handler.save_scan_results(save_data=results_directories[0], save_type=5)  # DIRECTORY DATA
+        File_Handler.save_scan_results(save_data=results_nmap[0], save_type=6)  # NMAP DATA 
         
         
         # NOW TO FEED SAVED SCAN INFO TO AI
@@ -846,7 +890,7 @@ class Module_Controller():
 if __name__ == "__main__":
 
 
-    start = 1
+    start = 5
 
 
     if start == 1:
@@ -875,4 +919,7 @@ if __name__ == "__main__":
         
     
     elif start == 5:
-        Utilities.tts(say="hello youtube, subscribe for more streams", voice_rate=5)
+        #Utilities.tts(say="hello youtube, subscribe for more streams", voice_rate=5)
+
+        Module_Controller.get_domain_newer(target="nsmbarii.com")
+        Module_Controller.get_domain_newer(target="192.168.1.1")

@@ -126,6 +126,8 @@ class NetTilities():
         # CATCH AND DESTROY ERRORS
         try:
 
+            console.input("\n[bold green]ARE U SURE: ")
+
             # GET API KEY FOR AI
             api_key_ai = File_Handler.get_api_key()["api_key_openai"]
 
@@ -548,14 +550,18 @@ class File_Handler():
 
     # CLASS VARIABLES
     ip_domain = ()
+    ip_info = []
     ports_open = []
     sub_found = []
+    dirs_found = []
+    nmap_found = []
 
 
     def  __init__(self):
         self.ip_domain = ()
         self.ports_open = []
         self.sub_found = []
+        
 
 
     
@@ -730,6 +736,11 @@ class File_Handler():
         elif save_type == 5:
             cls.dirs_found = save_data
 
+
+        # SAVE VULNS FOUND
+        elif save_type == 6:
+            cls.nmap_found = save_data
+
         
 
         # NOW TO AGGRAGATE RESULTS AND RETURN IT
@@ -740,7 +751,8 @@ class File_Handler():
                 "ipinfo": cls.ip_info,
                 "ports_found": cls.ports_open,
                 "subdomains_found": cls.subs_found,
-                "directories_found": cls.dirs_found
+                "directories_found": cls.dirs_found,
+                "nmap_results": cls.nmap_found
             }
             
             if verbose:
@@ -755,6 +767,7 @@ class File_Handler():
             cls.ports_open = []
             cls.sub_found = []
             cls.dirs_found = []
+            cls.nmap_found = []
 
             if verbose:
                 console.print(f"Successfully cleaned class values", style="bold red")

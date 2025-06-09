@@ -269,7 +269,8 @@ class File_Saving():
 
 
         # ERROR DEBUGGING
-        verbose = True
+        verbose = False
+        indent = 1
 
 
 
@@ -297,12 +298,12 @@ class File_Saving():
 
 
                     with open(path_way_json, "w") as file:
+
                         json.dump(save_data[0], file)    # 0 ==  JSON
                         
                         console.print(f"Successfully Saved json info --> {file}")
 
                     with open(path_way_txt, "w") as file:   
-                        console.print(save_data[1]) 
                         file.write(str(save_data[1]))  # 1 == TEXT
 
                         console.print(f"Successfully Saved txt info --> {file}")

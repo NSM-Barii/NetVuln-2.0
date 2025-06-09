@@ -114,9 +114,14 @@ class Requests_Directory_Scanner():
 
 
 
-                    # SAVE DATA
-                    cls.results_dir_json[dir] = (f"{url} --> Status Code:{response.status_code}")   # JSON
-                    cls.results_dir_txt.append(f"Dir: {url} --> Status Code: {response.status_code}")  # TXT
+                    # SAVE DATA // TEMP FALSE POS CATCHER
+                    if cls.dirs_up < 50:
+                        path = f"{sub_domain}/{dir}"
+                        cls.results_dir_json[path] = (f"{response.status_code}")   # JSON
+                        cls.results_dir_txt.append(f"{sub_domain}/{dir} --> Status Code: {response.status_code}")  # TXT
+
+                    elif cls.dirs_up == 51:                       
+                        console.print('[bold red]WARNING:[yellow] Over 50 Dirs were found, No longer Adding data in case of False Pos')
 
 
                 # USE THIS TO TAKE ADVANTAGE OF THE CLASS METHOD
@@ -257,7 +262,7 @@ class Requests_Directory_Scanner():
         time_start = time.time()
         cls.delete = False
         lol = 0
-        delay = .5
+        delay = 1
         
         try:
             with Live(table, console=console, refresh_per_second=1, transient=cls.delete ): 
@@ -329,42 +334,52 @@ class Requests_Directory_Scanner():
     def main(cls, sub_domains:str) -> list:
         """This method will be responsible for handling class wide logic"""
 
-
-        # ERROR DESTROYER
-        verbose = False
-
-
-        # FOR THREADER PANEL CONTROL
-        cls.subs_given = len(sub_domains)
+        # CHECK TO MAKE SURE LIST IS VALID
+        if sub_domains:
 
 
-        # SET PARAMS
-        thread_count = 500
-        dir_path = "1"
-        delay = .2
+            # ERROR DESTROYER
+            verbose = False
 
-        try:
+
+            # FOR THREADER PANEL CONTROL
+            cls.subs_given = len(sub_domains)
+
+
+            # SET PARAMS
+            thread_count = 500
+            dir_path = "1"
+            delay = .2
+
+            try:
+                
+
+                # ITERATE THROUGH EACH SUBDOMAIN WE HAVE AND FOR EACH ITERATE THROUGH DIRECTORIES
+                for domain in sub_domains:
+                    
+                    # DELAY TO PREVENT OVERWHELMING
+                    time.sleep(delay)
+                    
+                    Requests_Directory_Scanner.threader(sub_domain=domain, thread_count=thread_count, dir_path=dir_path)
+
+                    
+                if verbose:
+                    console.print(f"JSON Results: {cls.results_dir_json}")
+                    console.print(f"TEXT Results: {cls.results_dir_txt}")
+
+                
+                # RETURN SAVE DATA
+                return cls.results_dir_json, cls.results_dir_txt
             
-            # ITERATE THROUGH EACH SUBDOMAIN WE HAVE AND FOR EACH ITERATE THROUGH DIRECTORIES
-            for domain in sub_domains:
-                
-                # DELAY TO PREVENT OVERWHELMING
-                time.sleep(delay)
-                
-                Requests_Directory_Scanner.threader(sub_domain=domain, thread_count=thread_count, dir_path=dir_path)
 
+            except Exception as e:
+                console.print(f"[bold red]Exception Error:[yellow] {e}")
                 
-            if verbose:
-                console.print(f"JSON Results: {cls.results_dir_json}")
-                console.print(f"TEXT Results: {cls.results_dir_txt}")
-
-            
-            # RETURN SAVE DATA
-            return cls.results_dir_json, cls.results_dir_txt
         
 
-        except Exception as e:
-            console.print(f"[bold red]Exception Error:[yellow] {e}")
+        else:
+            console.print("\n[bold red]Directory Enumeration Skipped Due To:[yellow] No Sub-Domains given")
+            return ["None", "None"]
 
 
 
