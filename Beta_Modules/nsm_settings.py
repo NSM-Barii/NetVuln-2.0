@@ -80,6 +80,7 @@ class File_Saving():
 
     # GLOBAL VARIABLES
     filename = ""
+    paths_made = False
 
 
     def __init__(self):
@@ -126,8 +127,11 @@ class File_Saving():
         elif save_type == "8" or save_type == "nmap":
             return paths["nmap"]
 
-        elif save_type == "8" or save_type == "openai":
+        elif save_type == "9" or save_type == "openai":
             return paths["openai"]
+        
+        elif save_type == "15" or save_type == "everything":
+            return paths["everything"]
         
 
         # SCAN TREE
@@ -189,7 +193,7 @@ class File_Saving():
 
 
         # VARIABLES
-        verbose = True
+        verbose = False
  
         
         # SHOUDNT BE ANY ERRORS BUT JUST IN CASE
@@ -211,6 +215,7 @@ class File_Saving():
             raw_save_vulners = folder_dirs / "raw_save_vulners"
             raw_save_shodan = folder_dirs / "raw_save_shodan"
             raw_save_openai = folder_dirs / "raw_save_openai"
+            raw_save_everything = folder_dirs / "raw_save_everything"
 
 
             paths = [
@@ -222,7 +227,8 @@ class File_Saving():
                 raw_save_vulners,
                 raw_save_shodan,
                 raw_save_ipinfo,
-                raw_save_openai
+                raw_save_openai,
+                raw_save_everything
             ]
             
             
@@ -235,7 +241,9 @@ class File_Saving():
                     if verbose:
                         console.print(f"Successfully made path for: {path}", style="bold green")
                 
-                console.print("Successfully made all dedicated file folders", style="bold green")
+                if cls.paths_made == False:
+                    console.print("Successfully made all dedicated file folders", style="bold green")
+                    cls.paths_made = True
             
 
             # GIVE PATHS AS JSON
@@ -250,7 +258,8 @@ class File_Saving():
                     "vulners": raw_save_vulners,
                     "shodan": raw_save_shodan,
                     "ipinfo": raw_save_ipinfo,
-                    "openai": raw_save_openai
+                    "openai": raw_save_openai,
+                    "all": raw_save_everything
                 }
                     
 
@@ -265,6 +274,12 @@ class File_Saving():
     @classmethod
     def push_info(cls, save_data, save_type:str):
         """This is where info will be pushed to then be stored"""
+
+
+        # CLEAN PARAMS
+        if save_type == "1":
+            cls.paths_made = False
+            File_Saving.filename = ""
 
 
 
@@ -288,9 +303,53 @@ class File_Saving():
             if path.exists() and  path.is_dir() and base_dir.exists():
 
 
+
+
+                # FOR SAVING OPENAI RESPONSES
+                if save_type == "9":
+
+                    # CREATE PATHS
+                    path_way_json = path / "response.json"
+
+                    path_way_txt = path / "response.txt"
+
+                    path_raw = path / "response_full_raw.json"
+
+
+
+
+                    with open(path_way_json, "w") as file:
+
+                        json.dump(save_data[0], file)    # 0 ==  JSON
+                        
+                        if verbose:
+                            console.print(f"Successfully Saved json info --> {file}")
+                    
+                    with open(path_way_json, "w") as file:
+
+                        json.dump(save_data[2], file)    # 0 ==  FULL RAW RESPONSE // JSON
+                        
+
+                        if verbose:
+                            console.print(f"Successfully Saved json info --> {file}")
+
+                    with open(path_way_txt, "w") as file:   
+                        file.write(str(save_data[1]))  # 1 == TEXT
+                        
+
+                        if verbose:
+                            console.print(f"Successfully Saved txt info --> {file}")
+                    
+                    
+
+                    if verbose:
+                        console.print(f"BOOM --> {path}", style="bold red")
+
+
+  
                 
-                # IF WE ARE GIVING A LIST WITH JSON AND TEXT INFO
-                if type(save_data) == list:
+                # FOR RESULTS FROM SCANS // ENUMERATIONS
+                elif type(save_data) == list:
 
                     path_way_json = path / "results.json"
 
@@ -301,19 +360,24 @@ class File_Saving():
 
                         json.dump(save_data[0], file)    # 0 ==  JSON
                         
-                        console.print(f"Successfully Saved json info --> {file}")
+                        
+                        if verbose:
+                            console.print(f"Successfully Saved json info --> {file}")
 
                     with open(path_way_txt, "w") as file:   
                         file.write(str(save_data[1]))  # 1 == TEXT
+                        
 
-                        console.print(f"Successfully Saved txt info --> {file}")
+                        if verbose:
+                            console.print(f"Successfully Saved txt info --> {file}")
                     
                     
 
                     if verbose:
                         console.print(f"BOOM --> {path}", style="bold red")
-
-                
+           
+                    
+                    console.print(f"\n[bold green]Successfully Saved Results --> Scan Type:[bold green] {save_type}")
                 
 
                 break

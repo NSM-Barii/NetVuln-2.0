@@ -1,0 +1,27 @@
+{
+"1": "rich",
+"2":"pyfiglet",
+
+"3":"socket",
+"4": "scapy",
+"5": "python-nmap",
+"6": "ipaddress",
+"7": "dnspython",
+"8": "openai",
+"9": "shodan",
+"10": "vulners",
+
+
+"11": "threading",
+"12": "time",
+"13": "random",
+"14": "requests",
+"15": "concurrent",
+"16": "pyttsx3",
+"17": "plyer",
+"18": "datetime",
+"19": "platform",
+
+"20": "pathlib",
+"21": "json"
+}

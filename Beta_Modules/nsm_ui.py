@@ -183,7 +183,6 @@ class MainUI():
                 construction = True
 
             
-
             # HELP
             elif choice == "5":
                 construction = True

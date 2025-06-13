@@ -89,6 +89,10 @@ class Requests_Directory_Scanner():
             url = f"https://{sub_domain}/{dir}"
             with session as sus:
                 response = sus.get(url=url, timeout=3, allow_redirects=True)
+                r = requests.get(url=url)
+                
+                #r.headers
+
 
             content_len = len(response.text)
            
@@ -118,7 +122,7 @@ class Requests_Directory_Scanner():
                     if cls.dirs_up < 50:
                         path = f"{sub_domain}/{dir}"
                         cls.results_dir_json[path] = (f"{response.status_code}")   # JSON
-                        cls.results_dir_txt.append(f"{sub_domain}/{dir} --> Status Code: {response.status_code}")  # TXT
+                        cls.results_dir_txt.append(f"{sub_domain}/{dir} --> Status Code: {response.status_code}\n")  # TXT
 
                     elif cls.dirs_up == 51:                       
                         console.print('[bold red]WARNING:[yellow] Over 50 Dirs were found, No longer Adding data in case of False Pos')
@@ -334,6 +338,11 @@ class Requests_Directory_Scanner():
     def main(cls, sub_domains:str) -> list:
         """This method will be responsible for handling class wide logic"""
 
+
+        # CLEANSE DATA // PREVENT FUCKUPS
+        cls.results_dir_json = {}
+        cls.results_dir_txt = []
+
         # CHECK TO MAKE SURE LIST IS VALID
         if sub_domains:
 
@@ -368,7 +377,15 @@ class Requests_Directory_Scanner():
                     console.print(f"TEXT Results: {cls.results_dir_txt}")
 
                 
-                # RETURN SAVE DATA
+                # FORMAT DATA
+                cls.results_dir_txt = '\n'.join(cls.results_dir_txt)
+                
+                # SAVE DATA --> FILE STORING
+                from nsm_settings import File_Saving
+                File_Saving.push_info(save_data=[cls.results_dir_json, cls.results_dir_txt], save_type="5")
+
+                
+                # RETURN SAVE DATA 
                 return cls.results_dir_json, cls.results_dir_txt
             
 

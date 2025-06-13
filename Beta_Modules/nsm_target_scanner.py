@@ -11,11 +11,12 @@ import pyfiglet
 
 
 # NETWORK IMPORTS
-import socket, ipaddress, dns.resolver
+import socket, ipaddress, dns.resolver, nmap
 
 
 # ETC IMPORTS
-import threading, time, random, requests
+from html.parser import HTMLParser
+import threading, time, random, requests, subprocess
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -52,6 +53,13 @@ class Socket_Port_Scanner():
 
     class Sub_Utilities():
         """This will be a subclass set inside a class used for utilities"""
+
+
+        # GLOBAL VARIABLES // WILL BE CHANGED FROM MODULE CONTROLLER // MUST CALL UPON Module_Controller.get_ip_domain() <-- to get ip & domain
+        ip = ""
+        domain = ""
+
+
 
         def __init__(self):
             pass
@@ -143,6 +151,129 @@ class Socket_Port_Scanner():
             finally:
                 return service
 
+        
+        
+        @classmethod
+        def get_service_version_socket(cls, port):
+            """This method will be using the scapy libary to findout the service version"""
+
+
+            # DEBUGGING
+            verbose = False
+
+            
+            # TARGET CHECK
+            target = cls.ip
+
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                
+                try:
+                    s.settimeout(3)
+                    response = s.connect_ex((target, port))
+
+                    # SEND A HTTP HEADER REQUEST
+                    if response == 0:
+                        s.send(b"HEAD /HTTP/1.0\r\n\r\n")
+                        version = s.recv(1024).decode().strip()
+
+
+                        # PARSE INFO
+                       # parser = HTMLParser
+                        #parsed_info = parser.handle_data(data=version)
+
+                        
+
+                        return version
+                    
+                    return "N/A"
+                
+
+
+                #except HTMLParser.
+
+                
+
+                except Exception as e:
+                    if verbose:
+                        console.print(f"[bold red]Exception Error:[yellow] {e}")
+
+                    # RETURN N/A VERSION
+                    return "N/A"
+        
+
+        @classmethod
+        def get_service_version_request(cls, port):
+            """This method will be using the request libary to findout the service version"""
+
+
+            # DEBUGGING
+            verbose = False
+
+
+            # TARGET CHECK // CRAFT URL
+            if cls.domain:
+                url = f"https://{cls.domain}:{port}"
+            
+            else:
+                url = f"https://{cls.ip}:{port}"
+            
+            console.print(url)
+
+            try:
+
+                # MAKE THE REQUEST
+                response = requests.get(url=url, timeout=3, allow_redirects=True)
+                console.print(response.status_code)
+                if response.status_code == 200:
+
+                    # GET INFO FROM HEADERS
+                    headers = response.headers
+   
+                    
+
+                    # RETURN INFO
+                    console.print(headers)
+                    return headers
+                
+                else:
+
+                    return headers
+            
+            
+            # DESTROY ERRORS
+            except requests.ConnectTimeout as e:
+
+                if verbose:
+                    console.print(f"[bold red]Request Timeout Error:[yellow] {e}")
+                return "N/A"
+            
+
+            except requests.ConnectionError as e:
+
+                if verbose:
+                    console.print(f"[bold red]Requests Connection Error:[yellow] {e}")
+                return "N/A"
+
+            
+            except Exception as e:
+
+                if verbose:
+                    console.print(f"[bold red]Exception Error:[yellow] {e}")
+                return "N/A"
+        
+
+
+        @staticmethod
+        def get_service_version_nmap(target, port):
+            """This method will be using the nmap libary to get the service version"""
+
+
+            CMD = f"nmap -p {port} {target}"
+            results = subprocess.run(CMD, capture_output=False, text=True)
+            results = str(results.stdout)
+
+            return results
+
 
 
     def __init__(self):
@@ -179,7 +310,10 @@ class Socket_Port_Scanner():
                 # OPEN
                 if result == 0:
 
-                    table.add_row(f"{port}", f"{service}", "OPEN")
+                    # GET SERVICE VERSION IF AVAILABLE
+                    version = Socket_Port_Scanner.Sub_Utilities.get_service_version_socket(port=port) 
+
+                    table.add_row(f"{port}", f"{service}", f"{version}", "OPEN")
 
                     if print_text:
                         console.print(f"[bold green]Open Port:[/bold green] {port} --> {service}")
@@ -188,7 +322,7 @@ class Socket_Port_Scanner():
                     self.ports_found_with_service.append(f"{port} : {service}")
                     
                 
-                # FILTERED
+                # CLOSED
                 elif result in [111, 113]:
 
                     if print_text:
@@ -198,7 +332,7 @@ class Socket_Port_Scanner():
 
 
 
-                # CLOSED
+                # FILTERED
                 else:
 
                     if print_text:
@@ -250,12 +384,14 @@ class Socket_Port_Scanner():
         table = Table(title="Port Scan", title_style="bold red", header_style="bold red", style="bold purple")
         table.add_column("Port", style="bold blue")
         table.add_column("Service", style="yellow")
+        table.add_column("Version", style="red")
         table.add_column("Status", style="bold green")
 
         
         
         # NOW TO COUNT HOW LONG SCAN HAS BEEN TAKING
         time_start = time.time()
+        #scanner = Socket_Port_Scanner()  # # CLEANSE DATA // PREVENT FUCKUPS
 
 
         
@@ -302,7 +438,7 @@ class Socket_Port_Scanner():
         Utilities.tts(say=say, voice_rate=5)
 
         
-        ports_results = (
+        results_txt = (
                         f"Total Open Ports: {self.ports_open}\n"
                          f"Total Filtered Ports: {self.ports_filtered}",
                          f"Total Closed Ports: {self.ports_closed}\n",
@@ -310,10 +446,10 @@ class Socket_Port_Scanner():
                          f"Filtered Ports with Service: Not Bound"
                          
                          )
-        ports_results = '\n'.join(ports_results)
+        results_txt = '\n'.join(results_txt)
         
 
-        results = {
+        results_json = {
             f"Total_Open_Ports": self.ports_open,
             f"Total_Filtered_Ports": self.ports_filtered,
             f"Total_Closed_Ports": self.ports_closed,
@@ -323,29 +459,32 @@ class Socket_Port_Scanner():
 
 
         # PUSH RESULTS
-        return [results, ports_results]
+        return [results_json, results_txt]
         
 
-    
 
     @staticmethod
-    def main(target):
+    def main(target, scan_type=1):
         """This method will be responsible for calling upon module logic"""
 
-        
-        # GET A VALID IP
-        #target = Socket_Port_Scanner.Sub_Utilities.get_valid_ip()
-        
 
-        # GET THREAD COUNT
+        # GET THREAD COUNT // GET SCAN TYPE
         thread_count = 2000
+        scan_type = scan_type
+
+
         
 
-        # GET SCAN TYPE
-        scan_type = 2
+        # PERFORM GREATNESS
+        result = Socket_Port_Scanner().threader(ip=target, thread_count=thread_count, scan_type=scan_type)
 
 
-        return Socket_Port_Scanner().threader(ip=target, thread_count=thread_count, scan_type=scan_type)
+        # SAVE DATA --> FILE STORING
+        from nsm_settings import File_Saving
+        File_Saving.push_info(save_data=result, save_type="3")
+
+
+        return result
 
 
 
@@ -356,6 +495,8 @@ class Requests_Subdomain_Scanner():
     # CLASS VARIABLES // FIRST TIME USING PRETTY COOL
     subs_up = 0
     subs_active = []
+    results_json = {}
+    results_txt = []
 
 
     def __init__(self):
@@ -483,7 +624,14 @@ class Requests_Subdomain_Scanner():
                         # OUTPUT DATA TO TABLE AND APPEND TO LIST
                         table.add_row(f"{sub}.{domain}", "-->", f"{data}") 
                         cls.subs_active.append(f"{sub}.{domain}")
+
+
+                        # SAVE DATA
+                        subdomain = f"{sub}.{domain}"
+                        cls.results_json[subdomain] = data
+                        cls.results_txt.append(f"{subdomain} --> {data}\n")
             
+
 
             
             # REQUEST METHOD // DEAPPRECIATED, INCONSISTENT WITH RESULTS
@@ -556,7 +704,7 @@ class Requests_Subdomain_Scanner():
         
     
     @classmethod
-    def threader(cls, domain:str , sub_path: str, thread_count=250):
+    def threader(cls, domain:str , sub_path: str, thread_count=250, delay = .3):
         """This method will be responsible for performing a threaded subdomain scan // making the scan faster for bigger text files"""
 
 
@@ -583,7 +731,6 @@ class Requests_Subdomain_Scanner():
 
         # START TIMER
         time_start = time.time()
-        delay = .3
         lol = 0
 
         
@@ -636,18 +783,27 @@ class Requests_Subdomain_Scanner():
         Utilities.tts(say=say, voice_rate=10)
 
 
+        # FORMAT TXT
+        cls.results_txt = '\n'.join(cls.results_txt)
+
+
         # RETURN SUBDOMAIN RESULTS // NEXT STEP DIR ENUM
         return cls.subs_active
 
 
     
-    @staticmethod
-    def main(target):
+    @classmethod
+    def main(cls, target):
         """This method will be responsible for calling upon class wide logic"""
 
+        # CLEANSE DATA // PREVENT INFO FUCKUPS 
+        cls.subs_active = []
+        cls.results_json = {}
+        cls.results_txt = []
 
         
         # FUTURE LOGIC WILL USE THIS LINE TO PULL INFO FROM THE SETTINGS MODULE TO GET USER SETTINGS
+
         
 
         if  target:
@@ -656,8 +812,20 @@ class Requests_Subdomain_Scanner():
             sub_path = "1"
             thread_count = 250
 
+            
+            # PERFORM GREATNESS
+            results = Requests_Subdomain_Scanner.threader(domain=domain, sub_path=sub_path, thread_count=thread_count)
 
-            return Requests_Subdomain_Scanner.threader(domain=domain, sub_path=sub_path, thread_count=thread_count)
+            
+            # FORMAT DATA
+            cls.results_txt = '\n'.join(cls.results_txt)
+
+            # SAVE DATA --> FILE STORING
+            from nsm_settings import File_Saving
+            File_Saving.push_info(save_data=[cls.results_json, cls.results_txt], save_type="4")
+
+
+            return results
         
 
         else:
@@ -667,6 +835,7 @@ class Requests_Subdomain_Scanner():
 
 class Module_Controller():
     """This class will be responsible for calling upon Mulit-Module wide logic to consistently and cleanly perform NetVuln Scan"""
+
 
     def __init__(self):
         pass
@@ -768,7 +937,7 @@ class Module_Controller():
     def get_ip_domain() -> tuple:
         """This method will be responsible for taking the user inputted target and returning a valid stringed ip along with the domain if one was provided"""
 
-
+      
 
         # PANEL FOR GIVEN DOMAIN
         table_domain = Table(title="Target Validation",title_style= "bold red", border_style="bold purple",style="bold purple", header_style="bold red")
@@ -812,6 +981,33 @@ class Module_Controller():
                 else:
                     table_ip.add_row(f"{ip}", "--> ", f"{valid_ip}")
                     console.print("\n", table_ip)
+                
+
+                
+                # PASS VALUES TO SUBTILITIES MODULE // FOR VERSION LOOKUP
+                Socket_Port_Scanner().Sub_Utilities.ip = ip
+                Socket_Port_Scanner().Sub_Utilities.domain = domain
+
+
+                # FORMAT RESULTS 
+                results_json = {
+                    "ip": ip,
+                    "domain": domain
+                }
+
+                results_txt = [
+                    f"ip: {ip}",
+                    f"domain: {domain}"
+                ]
+                
+
+                # FORMAT DATA
+                results_txt = ''.join(results_txt)
+
+                # SAVE DATA --> FILE STORING
+                from nsm_settings import File_Saving
+                File_Saving.push_info(save_data=[results_json, results_txt], save_type="1")
+
                 
 
 
@@ -862,7 +1058,7 @@ class Module_Controller():
 
 
         # PERFORM NMAP VULNERABILITY SCAN // NSE
-        results_nmap = Nmap_Vulnerability_Scanner.nmap_vuln_scanner(target=ip) 
+        results_nmap = Nmap_Vulnerability_Scanner.nmap_vuln_scanner(target=ip, ports=results_open_ports) 
 
 
 
@@ -875,14 +1071,19 @@ class Module_Controller():
         File_Handler.save_scan_results(save_data=results_nmap[0], save_type=6)  # NMAP DATA 
         
         
-        # NOW TO FEED SAVED SCAN INFO TO AI
-        console.input("\n\n[bold green]Press Enter to go to AI: ")
-        AI_GENERATED_SUMMARY = NetTilities.talk_to_ai(prompt=File_Handler.save_scan_results(save_data=False,save_type=10), max_characters=1500)
-        console.print(AI_GENERATED_SUMMARY)
-        Utilities.tts(say=AI_GENERATED_SUMMARY, voice_rate=5)
-    
+        # NOW TO FEED SAVED SCAN INFO TO AI // AND PUSH FINAL INFO TO SAVE DATA FILE
+        AI_GENERATED_SUMMARY = NetTilities.talk_to_ai(prompt=File_Handler.save_scan_results(save_data=False,save_type=10), max_characters=1500, respond=True)
+        File_Handler.save_scan_results(save_data=AI_GENERATED_SUMMARY, save_type=15)
         
-        console.input("\n\n[bold red]Press Enter to Exit: ")
+
+        # EXIT // WHILE TRUE IN CASE OF ACCIDENTAL ENTER PRESS
+        print('\n')
+        while True:
+            choice = console.input("[bold red]Type exit to leave: ").strip().lower()
+            
+            if choice == "y" or choice == "yes" or choice == "1" or choice == "exit" or choice == "leave":
+                break
+
 
 
 
@@ -890,7 +1091,7 @@ class Module_Controller():
 if __name__ == "__main__":
 
 
-    start = 5
+    start = 4
 
 
     if start == 1:
@@ -916,6 +1117,18 @@ if __name__ == "__main__":
             thread_count=700, 
             scan_type=1
             )
+    
+    
+    elif start == 4:
+
+        ip = socket.gethostbyname("google.com")
+
+
+        ip, domain = Module_Controller.get_ip_domain()
+
+        open_ports = Socket_Port_Scanner.main(target=ip, scan_type=1)
+
+        #console.print(open_ports)
         
     
     elif start == 5:
@@ -923,3 +1136,20 @@ if __name__ == "__main__":
 
         Module_Controller.get_domain_newer(target="nsmbarii.com")
         Module_Controller.get_domain_newer(target="192.168.1.1")
+
+
+
+
+
+
+
+
+
+
+
+
+# AI QUESTSION
+
+#1 = "Please ask me clarifying questions until you are 95% confident that you can complete the task successfully"
+
+#2 = "What would someone in the top 0.1% of this field think?"
