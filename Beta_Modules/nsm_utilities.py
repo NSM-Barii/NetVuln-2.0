@@ -119,8 +119,24 @@ class NetTilities():
 
     
     @staticmethod
-    def talk_to_ai(prompt: str, role_user = False, role_system = False, max_characters = 400):
+    def talk_to_ai(prompt: str, role_user = False, role_system = False, max_characters = 400, respond=True):
         """This method will be used to submit scan info to AI, to then have it summarized and given back to the user"""
+
+
+        # MAKE SURE USER IS READY TO QUERY AI // SINCE IT COST MONEY
+        print('\n')
+        while True:
+            choice = console.input("Do you want to feed info to OpenAI[bold green](y/[bold red]n)[/bold red][/bold purple]: ").strip().lower()
+            
+            if choice == "y" or choice == "yes" or choice == "1":
+                break
+
+            elif choice == "n" or choice == "no" or choice == "0":
+                console.print("[bold green]OpenAI:[bold red] Fine skip me, I HATED YOU ANYWAYS")
+                time.sleep(1)
+                return
+            
+
 
         
         # CATCH AND DESTROY ERRORS
@@ -173,11 +189,29 @@ class NetTilities():
                     temperature=0.5,
 
                     max_tokens=max_characters
-                )
+                    )
                 
                 # CLEAN UP AND RETURN RESPONSE
                 response_clean = response.choices[0].message.content.strip()
-                return response_clean
+
+
+                # FORMAT DATA
+                response_json = {response_clean}
+                response_txt = response_clean
+                response_raw = response
+
+                
+                # SAVE DATA --> FILE STORING
+                from nsm_settings import File_Saving
+                File_Saving.push_info(save_data=[response_json, response_txt, response_raw], save_type="9")
+
+                
+                if respond:
+                    console.print(response_clean)
+                    Utilities.tts(say=response_clean, voice_rate=5)
+
+
+                return [response_json, response_txt]
             
             
             except Exception as e:
@@ -197,8 +231,8 @@ class NetTilities():
         # GET API KEY
         print("\n")
         api_key = File_Handler.get_api_key()["api_key_ipinfo"]
-        data = {}
-        text = []
+        results_json = {}
+        results_txt = []
 
         if api_key:
             url = f"https://ipinfo.io/{target_ip}?token={api_key}"
@@ -226,16 +260,22 @@ class NetTilities():
                 for key, value in response.json().items():
 
                     table.add_row(f"{key}", "-->", f"{value}")
-                    data[key] = value
-                    text.append(f"{key} --> {value}")
+                    results_json[key] = value
+                    results_txt.append(f"{key} --> {value}")
 
 
                 console.print(table)
 
 
                 # FOR SAVING INFO
-                text = '\n'.join(text)
-                return [data, text]
+                results_txt = '\n'.join(results_txt)
+
+
+                # SAVE DATA --> FILE STORING
+                from nsm_settings import File_Saving
+                File_Saving.push_info(save_data=[results_json, results_txt], save_type="2")
+
+                return [results_json, results_txt]
 
                  
 
@@ -396,7 +436,7 @@ class NetTilities():
                     
                     num += 1
 
-                
+                console.print(vuln_data)
                 console.print("\n\n\nSuccess",style="bold green" )
                 #console.print(vuln_data)
 
@@ -437,6 +477,7 @@ class Utilities():
     
     # CLASS VARIABLES
     start = False
+    allowed = True
 
 
     def __init__(self):
@@ -473,75 +514,119 @@ class Utilities():
     @classmethod
     def noty(cls, msg, timeout=10):
         """This method will be responsible for outputting notifications to the users system"""
+        
 
-        try:
+        # ONLY FOR WINDOWS FOR THE MOMENT // WILL BE DEAPPRECIATED SOON
+        if cls.allowed:
+
+            if Utilities.get_current_os() == "nt":
+                try:
+                    
+
+                    notification.notify(
+                        app_name ="NetVuln 2.0",
+                        title = "NetVuln 2.0",
+                        message = msg,
+                        timeout = timeout,
+                    )
+
+                
+                except Exception as e:
+                    console.print(f"[bold red]Exception Error:[yellow] {e}")
             
 
-            notification.notify(
-                app_name ="NetVuln 2.0",
-                title = "NetVuln 2.0",
-                message = msg,
-                timeout = timeout,
-            )
+            # UNIX / LINUX
+            else:
+                cls.allowed = False
+                console.print("Linux system found, wil not use noty system")
+                time.sleep(2)
 
-        
-        except Exception as e:
-            console.print(f"[bold red]Exception Error:[yellow] {e}")
-
-    
-
-    @staticmethod
-    def tts(say, voice_rate:int = 20, voice_sound:int = 1, lock=False):
+    @classmethod
+    def tts(cls, say, voice_rate:int = 20, voice_sound:int = 1, lock=False):
         """This will be used to output tts through the users speakers"""
 
 
-        # CREATE OBJECT
-        engine = pyttsx3.init()
-        
-        # SET VARIABLES
-        rate = engine.getProperty('rate')
-        voices = engine.getProperty('voices')
+
+        # CHECK OS THIS METHOD IS FOR WINDOWS ONLY // WILL BE DEAPPRECIATED SOON
+        if cls.allowed:
+
+            if Utilities.get_current_os() == "nt":
 
 
-
-        try:
-
-            engine.setProperty('rate', rate - voice_rate)
-            
-
-            # SET VOICE
-            if len(voices) > 0:
-                engine.setProperty('voice', voices[1].id)
-            
-            else:
-                engine.setProperty('voice', voices[0].id)
-
-            
-            # USE THREAD LOCKER
-            if lock:  
-                with lock:
-                    engine.say(say)
-                    engine.runAndWait()
-
-            
-            # NO THREAD LOCKER
-            else:
-                if engine.isBusy():
-                    engine.stop()
-                    engine.say(say)
-                    engine.runAndWait()
+                # CREATE OBJECT
+                engine = pyttsx3.init()
                 
-                else:
-                    engine.say(say)
-                    engine.runAndWait()
-            
-            
+                # SET VARIABLES
+                rate = engine.getProperty('rate')
+                voices = engine.getProperty('voices')
 
+
+
+                try:
+
+                    engine.setProperty('rate', rate - voice_rate)
+                    
+
+                    # SET VOICE
+                    if len(voices) > 0:
+                        engine.setProperty('voice', voices[1].id)
+                    
+                    else:
+                        engine.setProperty('voice', voices[0].id)
+
+                    
+                    # USE THREAD LOCKER
+                    if lock:  
+                        with lock:
+                            engine.say(say)
+                            engine.runAndWait()
+
+                    
+                    # NO THREAD LOCKER
+                    else:
+                        if engine.isBusy():
+                            engine.stop()
+                            engine.say(say)
+                            engine.runAndWait()
+                        
+                        else:
+                            engine.say(say)
+                            engine.runAndWait()
+                    
+                    
+
+                
+
+                except Exception as e:
+                    console.print(f"[bold red]Exception Error:[yellow] {e}")
+        
+            
+            # UNIX / LINUX
+            else:
+                cls.allowed = False
+                console.print("Linux system found, wil not use tts engine")
+                time.sleep(2)
+    
+
+    
+    @staticmethod
+    def get_current_os():
+        """This method will be used to check wheather this program is being run on windows or throught the container, or else"""
+      
+        
+        # WINDOWS
+        if os.name == "nt":
+            return "nt"
         
 
-        except Exception as e:
-            console.print(f"[bold red]Exception Error:[yellow] {e}")
+        # UNIX / LINUX
+        elif os.name == "posix":
+            return "posix"
+        
 
+        # WHATEVER THIS IS // LOL
+        else:
+            "unkown"
 
 
 class File_Handler():
@@ -743,7 +828,7 @@ class File_Handler():
 
         
 
-        # NOW TO AGGRAGATE RESULTS AND RETURN IT
+        # NOW TO AGGRAGATE RESULTS AND RETURN IT FOR AI
         elif save_type == 10:
  
             results = {
@@ -759,6 +844,30 @@ class File_Handler():
                 #console.print(f"\n\n[bold green]Successfully aggragatted results:[white] {results}", style="bold green")
 
                 console.print("\n\n",results)
+            
+        
+
+        # NOW TO AGGRAGATE RESULTS AND SAVE IT TO FILE DATA SAVING
+        elif save_type == 15:
+
+            AI_SUMMARY = save_data[0]  # JUST IN CASE // LOL
+
+            results = {
+                "domain_ip_resolution": cls.ip_domain,
+                "ipinfo": cls.ip_info,
+                "ports_found": cls.ports_open,
+                "subdomains_found": cls.subs_found,
+                "directories_found": cls.dirs_found,
+                "nmap_results": cls.nmap_found,
+                "AI_Generated_Summary": AI_SUMMARY
+            }
+
+
+
+            # SAVE DATA --> FILE STORING
+            from nsm_settings import File_Saving
+            File_Saving.push_info(save_data=results, save_type="15")
+            
 
 
             # RESET CLS VALUES
@@ -775,11 +884,7 @@ class File_Handler():
 
             return results
         
-
-
-
-
-
+        
 
 
 

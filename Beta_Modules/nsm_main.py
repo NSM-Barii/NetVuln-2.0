@@ -12,7 +12,7 @@ class  Import_Handler():
         pass
 
 
-
+    @staticmethod
     def Import_checker():
         """This will try to import all needed libaries"""
 
@@ -20,7 +20,7 @@ class  Import_Handler():
         try:
 
             # UI IMPORTS
-            import dns.exception
+            print("ui")
             from rich.panel import Panel
             from rich.table import Table
             from rich.live import Live
@@ -29,10 +29,12 @@ class  Import_Handler():
 
 
             # NETWORK IMPORTS
-            import socket, ipaddress, dns.resolver
+            print("network")
+            import socket, ipaddress, dns
 
 
             # ETC IMPORTS
+            print("etc")
             import threading, time, random, requests, os
             from concurrent.futures import ThreadPoolExecutor
             import pyttsx3
@@ -42,36 +44,50 @@ class  Import_Handler():
 
 
             # NSM IMPORTS
-            from nsm_utilities import Utilities
-            from nsm_directory_scanner import Requests_Directory_Scanner
 
 
-            # CONSTANTS & GLOBALS
-            console = Console()
-            terminal_width = console.size.width
 
 
             # FILE HANDLING
+            print("file handling")
             from pathlib import Path
             import json
+
+
+            # GIVE THE GO AHEAD
+            return True
         
 
 
         except ImportError as e:
-            print(e)
+            print("\nFailed to import Modules\n")
+
+            # GIVE THE FALSE AHEAD
+            return False
     
 
     
-    @classmethod
-    def import_installer(cls):
+    @staticmethod
+    def import_installer():
         """This method will be responsible for installing dependencies"""
 
 
-        choice = input("If you want to automatically install libaries type yes: ").strip().lower()
+        choice = "yes" #input("If you want to automatically install libaries type yes: ").strip().lower()
 
         if choice == "yes" or choice == "y" or choice == "1":
             print("Bet now downloading Dependencies")
-            #time.sleep(1)
+
+            
+            # BASE LIBARIES
+            import os, json
+            from pathlib import Path
+
+            # GET REQ FILE
+            #path = Path.home() / "Documents" / "NSM Tools" / "Network Tools" / "NetVuln 2" / "requirements.json"
+
+            path = Path('/app/requirements.json')
+            with open(path, "r") as file:
+                libaries = json.load(file)
             
 
             # LOOP FOR EXCEPTIONS
@@ -79,12 +95,8 @@ class  Import_Handler():
 
                 try:
 
-                    
-                    
-                    # IMPORT OS SO WE CAN INSTALL LIBARIES
-                    import os
-                    for key, value in cls.libaries.items():
-                        print(f"Now trying to install: {value}   #{key}/12")
+                    for key, value in libaries.items():
+                        print(f"Now trying to install: {value}   #{key}/20")
                         os.system(f"pip install {value}")
 
                     
@@ -95,14 +107,21 @@ class  Import_Handler():
                     console = Console()
 
                     # NOW PRINT SOME CODE
-                    console.print("Dependencies now installed.", style="bold blue")
+                    console.print("Dependencies Successfully installed.", style="bold blue")
                     console.print("Now Restarting cmd instance", style="bold green")
                     time.sleep(3)
 
 
+                    # GIVE THE GO AHEAD
+                    return True
+
+
                     # NOW TO BRING BACK TO MAIN MENU 
                     #from nsm_ui import MainUI
-                    # MainUI.main()
+                    #MainUI.main()
+                
+                except KeyboardInterrupt as e:
+                    break
     
 
                 except Exception as e:
@@ -110,72 +129,32 @@ class  Import_Handler():
                         
 
 
+    @staticmethod
+    def main():
+        """This will be responsible for checking if the user has all the libaries if not they will be installed"""
+        
+        go = True
+        while go:
 
-
-
-def learn():
-
-    import socket
-    from rich.panel import Panel
-    from rich.console import Console
-    from rich.table import Table
-
-    console = Console()
-
-    ip = socket.gethostbyname("google.com")
-    port = 25
-
-
-
-    # TABLE
-    table = Table(title="Port scan", style="bold red", border_style="bold purple")
-    table.add_column("Port", style="bold blue")
-    table.add_column("Service", style="yellow")
-    table.add_column("Status", style="bold green")
-
-
-
-    ports = [20, 21, 22, 23, 25, 53, 80, 110, 143, 443, 3389]
-
-    for port in ports:
-
-
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            
-
-            try:
-                s.settimeout(1)
-                result = s.connect_ex((ip, port))
-
-
-                if result == 0:
-
-                    status = "OPEN"
-
-                    service = socket.getservbyport(port)
-
-                    table.add_row(f"{port}", f"{service}", f'{status}')
-
-                
+            # IF LIBARIES ARE INSTALLED PROCCED
+            if Import_Handler.Import_checker():
                 
 
+                # REDIRECT TO THE UI MODULE, GO FROM THERE
+                from nsm_ui import MainUI
+                MainUI.main()
                 
+                go = False
 
+            # ELSE INSTALL THEM
+            else:
+                Import_Handler.import_installer()
+                import os, sys
 
-            
-
-            except Exception as e:
-                console.print(e)
-
-            
-
-    console.print(table)
-
-
-    
+                #os.execv(sys.executable, ['python'] + sys.argv)
 
 
 
-
-path = "​​C:\Windows\System32\drivers\etc"
-
+# RUN MULTI MODULE LOGIC FROM HERE
+if __name__ == "__main__":
+    Import_Handler.main()
