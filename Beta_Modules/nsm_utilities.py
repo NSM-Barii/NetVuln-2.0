@@ -192,6 +192,7 @@ class NetTilities():
 
                     max_tokens=max_characters
                     )
+                    
                 
                 # CLEAN UP AND RETURN RESPONSE
                 response_clean = response.choices[0].message.content.strip().replace('\\n', "\n")
@@ -236,6 +237,8 @@ class NetTilities():
         api_key = File_Handler.get_api_key()["api_key_ipinfo"]
         results_json = {}
         results_txt = []
+        results_json = {}
+        results_txt = []
 
         if api_key:
             url = f"https://ipinfo.io/{target_ip}?token={api_key}"
@@ -265,12 +268,22 @@ class NetTilities():
                     table.add_row(f"{key}", "-->", f"{value}")
                     results_json[key] = value
                     results_txt.append(f"{key} --> {value}")
+                    results_json[key] = value
+                    results_txt.append(f"{key} --> {value}")
 
 
                 console.print(table)
 
 
                 # FOR SAVING INFO
+                results_txt = '\n'.join(results_txt)
+
+
+                # SAVE DATA --> FILE STORING
+                from nsm_settings import File_Saving
+                File_Saving.push_info(save_data=[results_json, results_txt], save_type="2")
+
+                return [results_json, results_txt]
                 results_txt = '\n'.join(results_txt)
 
 
@@ -440,6 +453,7 @@ class NetTilities():
                     num += 1
 
                 console.print(vuln_data)
+                console.print(vuln_data)
                 console.print("\n\n\nSuccess",style="bold green" )
                 #console.print(vuln_data)
 
@@ -469,6 +483,7 @@ class Utilities():
     
     # CLASS VARIABLES
     start = False
+    allowed = True
     allowed = True
 
 
@@ -527,11 +542,6 @@ class Utilities():
                     console.print(f"[bold red]Exception Error:[yellow] {e}")
             
 
-            # UNIX / LINUX
-            else:
-                cls.allowed = False
-                console.print("Linux system found, wil not use noty system")
-                time.sleep(2)
 
     @classmethod
     def tts(cls, say, voice_rate:int = 20, voice_sound:int = 1, lock=False):
@@ -541,6 +551,7 @@ class Utilities():
 
         # CHECK OS THIS METHOD IS FOR WINDOWS ONLY // WILL BE DEAPPRECIATED SOON
         if cls.allowed:
+
 
             if Utilities.get_current_os() == "nt":
 
@@ -553,10 +564,10 @@ class Utilities():
                 voices = engine.getProperty('voices')
 
 
-
                 try:
 
                     engine.setProperty('rate', rate - voice_rate)
+                    
                     
 
                     # SET VOICE
@@ -565,14 +576,13 @@ class Utilities():
                     
                     else:
                         engine.setProperty('voice', voices[0].id)
-
                     
                     # USE THREAD LOCKER
                     if lock:  
                         with lock:
                             engine.say(say)
                             engine.runAndWait()
-
+                    
                     
                     # NO THREAD LOCKER
                     else:
@@ -586,8 +596,7 @@ class Utilities():
                             engine.runAndWait()
                     
                     
-
-                
+                         
 
                 except Exception as e:
                     console.print(f"[bold red]Exception Error:[yellow] {e}")
@@ -616,9 +625,6 @@ class Utilities():
             return "posix"
         
 
-        # WHATEVER THIS IS // LOL
-        else:
-            "unkown"
 
 
 class File_Handler():
@@ -820,6 +826,7 @@ class File_Handler():
         
 
         # NOW TO AGGRAGATE RESULTS AND RETURN IT FOR AI
+        # NOW TO AGGRAGATE RESULTS AND RETURN IT FOR AI
         elif save_type == 10:
  
             results = {
@@ -876,6 +883,8 @@ class File_Handler():
 
 
             return results
+        
+        
         
         
 

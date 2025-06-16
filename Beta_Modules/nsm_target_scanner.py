@@ -822,6 +822,9 @@ class Requests_Subdomain_Scanner():
             from nsm_settings import File_Saving
             File_Saving.push_info(save_data=[cls.results_json, cls.results_txt], save_type="4")
 
+            
+            # PERFORM GREATNESS
+            results = Requests_Subdomain_Scanner.threader(domain=domain, sub_path=sub_path, thread_count=thread_count)
 
             return results
         
