@@ -50,8 +50,7 @@ class NetTilities():
 
     def __init__(self):
         pass
- 
-    
+
 
     @classmethod
     def get_conn_status(cls):
@@ -126,16 +125,19 @@ class NetTilities():
         # MAKE SURE USER IS READY TO QUERY AI // SINCE IT COST MONEY
         print('\n')
         while True:
-            choice = console.input("Do you want to feed info to OpenAI[bold green](y/[bold red]n)[/bold red][/bold purple]: ").strip().lower()
+            choice = console.input("Do you want to feed info to OpenAI[bold green](y/[bold red]n)[/bold red][bold purple]: ").strip().lower()
             
             if choice == "y" or choice == "yes" or choice == "1":
                 break
 
             elif choice == "n" or choice == "no" or choice == "0":
-                console.print("[bold green]OpenAI:[bold red] Fine skip me, I HATED YOU ANYWAYS")
+                console.print("[bold green]\nOpenAI:[bold red] Fine skip me, I HATED YOU ANYWAYS")
                 time.sleep(1)
                 return
-            
+        
+
+        # PRINT ALL THE AGGREGATED RESULTS CURRENT BEING HELD FOR USER TO SEE
+        console.print(prompt)
 
 
         
@@ -186,32 +188,33 @@ class NetTilities():
                         {"role": "system", "content": f"{role_system}"},
                         {"role": "user", "content": f"{role_user}" f"{prompt}"}
                     ],
-                    temperature=0.5,
+                    temperature=0.3,
 
                     max_tokens=max_characters
                     )
                 
                 # CLEAN UP AND RETURN RESPONSE
-                response_clean = response.choices[0].message.content.strip()
+                response_clean = response.choices[0].message.content.strip().replace('\\n', "\n")
 
 
                 # FORMAT DATA
-                response_json = {response_clean}
-                response_txt = response_clean
+                response_txt = response_clean.split('\n')
                 response_raw = response
 
-                
-                # SAVE DATA --> FILE STORING
-                from nsm_settings import File_Saving
-                File_Saving.push_info(save_data=[response_json, response_txt, response_raw], save_type="9")
+ 
 
-                
+                # IF RESPOND == TRUE, PRINT RESULTS AND ALSO SPEAK IT ALOUD               
                 if respond:
                     console.print(response_clean)
-                    Utilities.tts(say=response_clean, voice_rate=5)
+                    threading.Thread(target=Utilities.tts, args=(response_clean, 5)).start()
+
+                                
+                # SAVE DATA --> FILE STORING
+                from nsm_settings import File_Saving
+                File_Saving.push_info(save_data=[response_txt, response_raw], save_type="9")
 
 
-                return [response_json, response_txt]
+                return response_txt
             
             
             except Exception as e:
@@ -440,15 +443,6 @@ class NetTilities():
                 console.print("\n\n\nSuccess",style="bold green" )
                 #console.print(vuln_data)
 
-                    
-
-
-
-
-
-
-
-
             
             else:
                 console.print(f"[bold red]Failed to get API info with Status Code:[yellow] {response.status_code}")
@@ -465,8 +459,6 @@ class NetTilities():
         except Exception as e:
             console.print(f"[bold red]Exception Error:[yellow] {e}")
 
-
-    
 
 
 
@@ -697,7 +689,6 @@ class File_Handler():
 
     
 
-
     @staticmethod
     def get_api_key(path_api = "1"):
         """This method will be responsible for pulling the users api's key, depending on what api is being used dynamically"""\
@@ -786,7 +777,7 @@ class File_Handler():
             else:
                 file_path.mkdir(parents=True, exist_ok=True)
 
-    
+
 
     @classmethod
     def save_scan_results(cls, save_data: str, save_type: int):
@@ -794,7 +785,7 @@ class File_Handler():
 
 
         # ERROR DEBUGGING
-        verbose = True
+        verbose = False
      
 
         # SAVE IP AND OR DOMAIN
@@ -844,13 +835,15 @@ class File_Handler():
                 #console.print(f"\n\n[bold green]Successfully aggragatted results:[white] {results}", style="bold green")
 
                 console.print("\n\n",results)
+
+            return results
             
         
 
         # NOW TO AGGRAGATE RESULTS AND SAVE IT TO FILE DATA SAVING
         elif save_type == 15:
 
-            AI_SUMMARY = save_data[0]  # JUST IN CASE // LOL
+            AI_SUMMARY = save_data  # JUST IN CASE // LOL
 
             results = {
                 "domain_ip_resolution": cls.ip_domain,
@@ -893,10 +886,11 @@ class File_Handler():
 if __name__ == "__main__":
 
 
-    use = 3
+    use = 1
 
     if use == 1:
-        File_Handler.image_extractor()
+        p = "sending me text back like \n "
+        NetTilities.talk_to_ai(prompt=p, max_characters=30, role_system="this is a test run", role_user="test run")
     
 
     elif use == 2:

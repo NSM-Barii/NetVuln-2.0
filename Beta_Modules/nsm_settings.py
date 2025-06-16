@@ -130,8 +130,8 @@ class File_Saving():
         elif save_type == "9" or save_type == "openai":
             return paths["openai"]
         
-        elif save_type == "15" or save_type == "everything":
-            return paths["everything"]
+        elif save_type == "15" or save_type == "all":
+            return paths["all"]
         
 
         # SCAN TREE
@@ -153,7 +153,6 @@ class File_Saving():
         #           raw_save_openai
         #           AI_GENERATED_SUMMARY
         #           How_To_NetVuln.txt    # THIS WILL EXPLAIN HOW TO USE THE GIVEN SAVED INFO
-
 
 
     @classmethod
@@ -285,7 +284,12 @@ class File_Saving():
 
         # ERROR DEBUGGING
         verbose = False
-        indent = 1
+
+
+        # FILE SAVING VALUES
+        indent = 4
+        ascii = False
+        encoding = "utf-8"
 
 
 
@@ -313,27 +317,27 @@ class File_Saving():
 
                     path_way_txt = path / "response.txt"
 
-                    path_raw = path / "response_full_raw.json"
+                    path_raw = path / "response_raw.txt"
 
 
 
-
-                    with open(path_way_json, "w") as file:
-
-                        json.dump(save_data[0], file)    # 0 ==  JSON
+                    # SAVE CLEANED AI RESPONSE
+                    with open(path_way_txt, "w", encoding=encoding) as file:   
+                        file.write(str(save_data[0]))  # 1 == TEXT
                         
+
                         if verbose:
-                            console.print(f"Successfully Saved json info --> {file}")
+                            console.print(f"Successfully Saved txt info --> {file}")
                     
-                    with open(path_way_json, "w") as file:
+                    
 
-                        json.dump(save_data[2], file)    # 0 ==  FULL RAW RESPONSE // JSON
-                        
+                    if verbose:
+                        console.print(f"BOOM --> {path}", style="bold red") 
+                    
 
-                        if verbose:
-                            console.print(f"Successfully Saved json info --> {file}")
-
-                    with open(path_way_txt, "w") as file:   
+                    
+                    # SAVE RAW AI RESPONSE
+                    with open(path_raw, "w", encoding=encoding) as file:   
                         file.write(str(save_data[1]))  # 1 == TEXT
                         
 
@@ -345,26 +349,67 @@ class File_Saving():
                     if verbose:
                         console.print(f"BOOM --> {path}", style="bold red")
 
+                    
+                    # ALMOST DONE
+                    console.print(f"\n[bold green]Successfully Saved Results --> Scan Type:[bold green] {save_type}") 
+                
+                
+
+                # FOR ALL DATA PUT TOGETHER
+                elif save_type == "15":
+                   
+                    
+                    # PATH FOR ALL RESULTS
+                    path_way_json = path / "results_all.json"
+                    path_way_txt = path / "results_all.txt"
+
+
+                    with open(path_way_json, "w", encoding=encoding) as file:
+
+                        json.dump(save_data, file, indent=indent, ensure_ascii=ascii)    # 0 ==  JSON
+                        
+                        if verbose:
+                            console.print(f"Successfully Saved json info --> {file}")
+                    
+
+                    # SAVE RAW AI RESPONSE
+                    with open(path_way_txt, "w", encoding=encoding) as file:   
+                        file.write(str(save_data))  # 1 == TEXT
+                        
+
+                        if verbose:
+                            console.print(f"Successfully Saved txt info --> {file}")
+                    
+                    
+
+                    if verbose:
+                        console.print(f"BOOM --> {path}", style="bold red") 
+
+                    
+                    # BOOM END OF SCAN
+                    console.print(f"\n[bold green]Successfully Saved Results --> Scan Type:[bold green] {save_type}")
+
+
 
   
                 
                 # FOR RESULTS FROM SCANS // ENUMERATIONS
                 elif type(save_data) == list:
-
+                    
                     path_way_json = path / "results.json"
 
                     path_way_txt = path / "results.txt"
 
 
-                    with open(path_way_json, "w") as file:
+                    with open(path_way_json, "w", encoding=encoding) as file:
 
-                        json.dump(save_data[0], file)    # 0 ==  JSON
+                        json.dump(save_data[0], file, indent=indent, ensure_ascii=ascii)    # 0 ==  JSON
                         
                         
                         if verbose:
                             console.print(f"Successfully Saved json info --> {file}")
 
-                    with open(path_way_txt, "w") as file:   
+                    with open(path_way_txt, "w", encoding=encoding) as file:   
                         file.write(str(save_data[1]))  # 1 == TEXT
                         
 

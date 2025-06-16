@@ -364,7 +364,7 @@ class Socket_Port_Scanner():
             console.print(f"[bold red]Exception Error:[yellow] {e}")
     
 
-    def threader(self, ip: str, thread_count=250, scan_type=1) -> str:
+    def threader(self, ip: str, scan_type=1, thread_count=250) -> str:
         """This method is responsible for performing a threaded port scan"""
         
 
@@ -464,19 +464,17 @@ class Socket_Port_Scanner():
 
 
     @staticmethod
-    def main(target, scan_type=1):
+    def main(target, scan_type=1, thread_count=2000):
         """This method will be responsible for calling upon module logic"""
 
 
-        # GET THREAD COUNT // GET SCAN TYPE
-        thread_count = 2000
-        scan_type = scan_type
+        # SCAN TYPE 1 == (1, 1024)
+        # SCAN TYPE 2 == (1, 65536) 
 
 
-        
 
         # PERFORM GREATNESS
-        result = Socket_Port_Scanner().threader(ip=target, thread_count=thread_count, scan_type=scan_type)
+        result = Socket_Port_Scanner().threader(ip=target, scan_type=scan_type, thread_count=thread_count)
 
 
         # SAVE DATA --> FILE STORING
@@ -733,7 +731,11 @@ class Requests_Subdomain_Scanner():
         time_start = time.time()
         lol = 0
 
-        
+
+        # MAKE SURE THE USER DOESNT OVERWHELM THERE ROUTER
+        if sub_path == "2" and delay < .5:
+            delay = 1
+
 
 
         # BEGIN THREADING SCAN    
@@ -784,7 +786,6 @@ class Requests_Subdomain_Scanner():
 
 
         # FORMAT TXT
-        cls.results_txt = '\n'.join(cls.results_txt)
 
 
         # RETURN SUBDOMAIN RESULTS // NEXT STEP DIR ENUM
@@ -793,7 +794,7 @@ class Requests_Subdomain_Scanner():
 
     
     @classmethod
-    def main(cls, target):
+    def main(cls, target, sub_path="1", thread_count=250, delay=.3):
         """This method will be responsible for calling upon class wide logic"""
 
         # CLEANSE DATA // PREVENT INFO FUCKUPS 
@@ -809,12 +810,9 @@ class Requests_Subdomain_Scanner():
         if  target:
             domain = str(target) 
 
-            sub_path = "1"
-            thread_count = 250
 
-            
             # PERFORM GREATNESS
-            results = Requests_Subdomain_Scanner.threader(domain=domain, sub_path=sub_path, thread_count=thread_count)
+            results = Requests_Subdomain_Scanner.threader(domain=domain, sub_path=sub_path, thread_count=thread_count, delay=delay)
 
             
             # FORMAT DATA
@@ -1002,7 +1000,7 @@ class Module_Controller():
                 
 
                 # FORMAT DATA
-                results_txt = ''.join(results_txt)
+                results_txt = '\n'.join(results_txt)
 
                 # SAVE DATA --> FILE STORING
                 from nsm_settings import File_Saving
@@ -1023,11 +1021,25 @@ class Module_Controller():
             except Exception as e:
                 console.print(f"[bold red]Exception Error:[yellow] {e}")
 
+    
+
+    @staticmethod
+    def module_ui(text="  Ethical\n  Hacker", font="bloody", style="bold purple"):
+        """This will house simple logic to output a module message"""
+        
+
+        welcome = pyfiglet.figlet_format(text=text, font=font)
+        console.print(f"\n\n{welcome}\n\n", style=style) 
+
 
     
     @staticmethod
     def controller():
         """This will be in charge of Multi-Module Logic"""
+
+
+        # OUTPUT WELCOMING UI
+        Module_Controller.module_ui()
         
 
         # USER VALIDATION CHECK
@@ -1050,11 +1062,11 @@ class Module_Controller():
 
 
         # PERFORM SUBDOMAIN ENUMERATION
-        results_sub_domains = Requests_Subdomain_Scanner.main(target=domain)
+        results_sub_domains = Requests_Subdomain_Scanner.main(target=domain, sub_path="2")
 
 
         # PERFORM DIRECTORY ENUMERATION
-        results_directories = Requests_Directory_Scanner.main(sub_domains=results_sub_domains)
+        results_directories = Requests_Directory_Scanner.main(sub_domains=results_sub_domains, dir_path="2")
 
 
         # PERFORM NMAP VULNERABILITY SCAN // NSE
@@ -1091,7 +1103,7 @@ class Module_Controller():
 if __name__ == "__main__":
 
 
-    start = 4
+    start = 2
 
 
     if start == 1:
@@ -1100,11 +1112,10 @@ if __name__ == "__main__":
 
 
     elif start == 2:
-        Socket_Port_Scanner.main()
 
-        ip = "google.com"
+        ip = "discord.com"
 
-        Requests_Subdomain_Scanner.subdomain_scanner(domain=ip)
+        Requests_Subdomain_Scanner.main(target=ip)
 
 
 

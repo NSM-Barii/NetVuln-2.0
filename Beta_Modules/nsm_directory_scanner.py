@@ -65,11 +65,12 @@ class Requests_Directory_Scanner():
 
 
     @classmethod
-    def directory_scanner(cls, sub_domain: str, dir: str, table, session):
+    def directory_scanner(cls, sub_domain: str, dir: str, table, session, timeout):
         """This method will be responsible for performing dir scanning"""
 
         verbose = False
-
+        rep = False
+        
         try:
 
             # MAKE FAKE REQUEST TO 404 PAGE TO GET A BASELINE
@@ -88,17 +89,22 @@ class Requests_Directory_Scanner():
             # PERFORM DIR SCAN
             url = f"https://{sub_domain}/{dir}"
             with session as sus:
-                response = sus.get(url=url, timeout=3, allow_redirects=True)
+                response = sus.get(url=url, timeout=timeout, allow_redirects=True)
                 r = requests.get(url=url)
                 
                 #r.headers
 
 
             content_len = len(response.text)
+
+            
+            # USED AS A WAY TO FILTER FOR STATUS CODES
+            if response.status_code == 200 or response.status_code == 301:
+                rep = True
            
 
             # CHECK TO MAKE SURE RESPONSE STATUS CODE IS VALID
-            if response.status_code == 200 and abs(content_len - baseline_len) > 20:
+            if rep and abs(content_len - baseline_len) > 20:
 
                 if verbose:
                     console.print(f"[bold green]Status Code:[yellow] {response.status_code}[/yellow]  -->  [bold red]{url}")
@@ -106,7 +112,7 @@ class Requests_Directory_Scanner():
 
                 else:
                     if cls.delete == False and cls.dirs_up < 25:
-                        table.add_row(f"{sub_domain}", "-->", f"{url}")
+                        table.add_row(f"{url}", "-->", f"{response.status_code}")
                     
                     elif cls.delete == False:
                         cls.delete = True
@@ -121,7 +127,7 @@ class Requests_Directory_Scanner():
                     # SAVE DATA // TEMP FALSE POS CATCHER
                     if cls.dirs_up < 50:
                         path = f"{sub_domain}/{dir}"
-                        cls.results_dir_json[path] = (f"{response.status_code}")   # JSON
+                        cls.results_dir_json[path] = (response.status_code)   # JSON
                         cls.results_dir_txt.append(f"{sub_domain}/{dir} --> Status Code: {response.status_code}\n")  # TXT
 
                     elif cls.dirs_up == 51:                       
@@ -230,7 +236,7 @@ class Requests_Directory_Scanner():
 
 
     @classmethod
-    def threader(cls, sub_domain: str, thread_count=250, dir_path="1"):
+    def threader(cls, sub_domain: str, dir_path="1", thread_count=250, timeout=1):
         """This method will be responsible for using the directory_scanner <-- and threading through it"""
          
 
@@ -257,9 +263,9 @@ class Requests_Directory_Scanner():
         
         # CREATE TABLE FOR INFO
         table = Table(title=f"Directory Scan --> {sub}", title_style="bold red", header_style="bold red", style="bold purple")
-        table.add_column("Domain", style="bold blue")
+        table.add_column("Directory", style="bold blue")
         table.add_column("-->", style="bold red")
-        table.add_column("Directory", style="bold green")
+        table.add_column("Status Code", style="bold green")
 
 
         # KEEP TRACK OF TIME
@@ -269,13 +275,13 @@ class Requests_Directory_Scanner():
         delay = 1
         
         try:
-            with Live(table, console=console, refresh_per_second=1, transient=cls.delete ): 
+            with Live(table, console=console, refresh_per_second=.1, transient=cls.delete ): 
 
                 # REQUEST SESSION
                 with requests.Session() as sus:
                     with ThreadPoolExecutor(max_workers=thread_count) as executor:
                         for dir in directories:
-                            executor.submit(Requests_Directory_Scanner.directory_scanner, sub_domain, dir, table, sus)
+                            executor.submit(Requests_Directory_Scanner.directory_scanner, sub_domain, dir, table, sus, timeout)
                             
                             # SLOW DOWN BUDDY // LOL
                             if lol == 30:
@@ -335,7 +341,7 @@ class Requests_Directory_Scanner():
 
     
     @classmethod
-    def main(cls, sub_domains:str) -> list:
+    def main(cls, sub_domains:str, dir_path="1", thread_count=500, delay=.2, timeout=1 ) -> list:
         """This method will be responsible for handling class wide logic"""
 
 
@@ -355,11 +361,6 @@ class Requests_Directory_Scanner():
             cls.subs_given = len(sub_domains)
 
 
-            # SET PARAMS
-            thread_count = 500
-            dir_path = "1"
-            delay = .2
-
             try:
                 
 
@@ -369,7 +370,7 @@ class Requests_Directory_Scanner():
                     # DELAY TO PREVENT OVERWHELMING
                     time.sleep(delay)
                     
-                    Requests_Directory_Scanner.threader(sub_domain=domain, thread_count=thread_count, dir_path=dir_path)
+                    Requests_Directory_Scanner.threader(sub_domain=domain, thread_count=thread_count, dir_path=dir_path, timeout=timeout)
 
                     
                 if verbose:
