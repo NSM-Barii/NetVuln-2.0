@@ -165,7 +165,8 @@ class File_Saving():
             # MAKE IP FILE SAVEABLE // NOT IN USE AS OF THE MOMENT
             path_ip = '_'.join(target_ip.split('.'))
 
-
+            
+            # IF THERE IS ALREADY A FILE NAME PRESENT
             if cls.filename != "":
                 return cls.filename
 
@@ -238,10 +239,10 @@ class File_Saving():
                     
                     # FOR DEBUGGING
                     if verbose:
-                        console.print(f"Successfully made path for: {path}", style="bold green")
+                        console.print(f"\nSuccessfully made path for: {path}", style="bold green")
                 
                 if cls.paths_made == False:
-                    console.print("Successfully made all dedicated file folders", style="bold green")
+                    console.print("\nSuccessfully made all dedicated file folders", style="bold green")
                     cls.paths_made = True
             
 

@@ -58,6 +58,7 @@ class Socket_Port_Scanner():
         # GLOBAL VARIABLES // WILL BE CHANGED FROM MODULE CONTROLLER // MUST CALL UPON Module_Controller.get_ip_domain() <-- to get ip & domain
         ip = ""
         domain = ""
+        create_sec = False
 
 
 
@@ -209,35 +210,84 @@ class Socket_Port_Scanner():
             # DEBUGGING
             verbose = False
 
+            
+            # STORE DATA
+            data = {}
+            dataa = []
+
 
             # TARGET CHECK // CRAFT URL
             if cls.domain:
-                url = f"https://{cls.domain}:{port}"
+                url = f"https://{cls.domain}"
             
             else:
                 url = f"https://{cls.ip}:{port}"
             
-            console.print(url)
+            
+            if verbose:
+                console.print(url)
 
             try:
 
                 # MAKE THE REQUEST
                 response = requests.get(url=url, timeout=3, allow_redirects=True)
-                console.print(response.status_code)
+                
+
                 if response.status_code == 200:
 
                     # GET INFO FROM HEADERS
                     headers = response.headers
-   
+
+                    
+                    # GET HEADERS AND PARSE THAT MOTHER FUCKERRR
+                    headers = response.headers
+                    
+                    for key, value in headers.items():
+
+
+                        # LOWER FOR BETTER PARSING
+                        key = key.lower().strip()
+
+                        if key.lower() in ["server", "x-powered-by", "strict-transport-security", "content-security-policy", "x-frame-options", "x-content-type-options"]:
+
+                            data[key] = value
                     
 
-                    # RETURN INFO
-                    console.print(headers)
-                    return headers
-                
-                else:
+                    # CONTROL DATA CHAR LENGTH
+                    if len(data.get("content-security-policy", "")) > 50:
+                        #console.print(f"max char length triggered --> {cls.domain}", style="bold red")
+                        data["content-security-policy"] = "Max Chars / To many chars given from site"
 
-                    return headers
+
+                    
+                    # GET VARS
+                    server = data.get("server", "Not found")
+                    x_powered_by = data.get("x-powered-by", "Not found")
+                    strict_transport_security = data.get("strict-transport-security", "Missing")
+                    content_security_policy = data.get("content-security-policy", "Missing")
+                    
+
+                    
+                    # FORMAT DATA
+                    dataa = [
+                        (f"Server: {server}"),
+                        (f"x-powered-by: {x_powered_by}"),
+ 
+                    ]
+
+
+                    # FORMAT DATA LOOK
+                    dataa_pretty = (f"{dataa[0]}\n{dataa[1]}")
+                    
+                    if verbose:
+                        console.print(dataa_pretty)
+
+                    # CREATE A SECTION
+                    cls.create_sec = 1 if port == 80 else 2
+
+                    # RETURN INFO
+                    return dataa_pretty
+
             
             
             # DESTROY ERRORS
@@ -273,9 +323,46 @@ class Socket_Port_Scanner():
             results = str(results.stdout)
 
             return results
+        
+
+        @staticmethod
+        def main(port, table):
+            """This will be in control of what type of service_version method is called upon"""
+
+
+            # DESTROY ERRORS
+            verbose = False
+
+            port = port
+            
+
+            # DEBUGGING
+            if verbose:
+                console.print(f"Port --> {port}")
+            
+            # USE REQUEST METHOD
+            if port in [80,443,8443]:
+
+                # ERRORS
+                if verbose:
+                    console.print("using request_scanner")
+            
+                return Socket_Port_Scanner.Sub_Utilities.get_service_version_request(port=port)
+            
+            # USE RAW SOCKETS METHOD
+            else:
+
+                # ERRORS
+                if verbose:
+                    console.print("using socket_scanner")
+
+                
+                return Socket_Port_Scanner.Sub_Utilities.get_service_version_socket(port=port)
 
 
 
+
+# END OF -->  sub_utilities 
     def __init__(self):
 
         
@@ -311,9 +398,20 @@ class Socket_Port_Scanner():
                 if result == 0:
 
                     # GET SERVICE VERSION IF AVAILABLE
-                    version = Socket_Port_Scanner.Sub_Utilities.get_service_version_socket(port=port) 
+                    version = Socket_Port_Scanner.Sub_Utilities.main(port=port, table=table) 
+                    
+                    # FOR ADDING SECTION ON TOP IF 80 IS FIRST
+                    if Socket_Port_Scanner.Sub_Utilities.create_sec == 1:
+                        table.add_section()
 
                     table.add_row(f"{port}", f"{service}", f"{version}", "OPEN")
+
+                    # CREATE SECTION IF VALID
+                    if Socket_Port_Scanner.Sub_Utilities.create_sec:
+                        table.add_section()
+
+                        # RESET VALUE
+                        Socket_Port_Scanner.Sub_Utilities.create_sec = False
 
                     if print_text:
                         console.print(f"[bold green]Open Port:[/bold green] {port} --> {service}")
@@ -396,7 +494,7 @@ class Socket_Port_Scanner():
 
         
         # BEGIN THREADED PORT SCAN // LOL SHII IS EASY
-        with Live(table, console=console, refresh_per_second=4):
+        with Live(table, console=console, refresh_per_second=.1):
             with ThreadPoolExecutor(max_workers=thread_count) as executor:
 
                 try:
@@ -464,7 +562,7 @@ class Socket_Port_Scanner():
 
 
     @staticmethod
-    def main(target, scan_type=1, thread_count=2000):
+    def main(target, scan_type=2, thread_count=2000):
         """This method will be responsible for calling upon module logic"""
 
 
@@ -500,9 +598,121 @@ class Requests_Subdomain_Scanner():
     def __init__(self):
         self.subs_up = 0
         self.sups_down = 0
+    
+
+
+    @staticmethod
+    def get_headers(sub, domain, timeout=3):
+        """This method is used to pull and parse headers for the subdomain"""
+
+
+        # ERRORS
+        verbose = False
+
+
+        # STORE DATA
+        data = {}
+        dataa = []
+
+        sub_domain= (f"{sub}.{domain}")
+        url = f"https://{sub_domain}"
+        
+
+        try:
+            response = requests.get(url=url, timeout=timeout)
+
+        
+
+        except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeout) as e:
+            if verbose:
+                console.print(f"[bold red]Requests Connection or Timeout Error:[yellow] {e}")
+                                                      
+            console.print(f"Failed To Fetch Headers -->[bold red] {sub_domain}", style="yellow")
+            return False
+        
+
+        except Exception as e: 
+            if verbose:
+                console.print(f"[bold red]Exception Error:[yellow] {e}")
+            
+            console.print(f"Failed To Fetch Headers -->[bold red] {sub_domain}", style="yellow")
+            return False 
+        
+       
+
+        try:
+            # GET HEADERS AND PARSE THAT MOTHER FUCKERRR
+            headers = response.headers
+            valid_keys = [
+                    "server", "x-powered-by", "x-frame-options", "content-security-policy", "strict-transport-policy", "refer-policy" 
+                    ]         
+            
+
+            for key, value in headers.items():
+
+
+                # LOWER FOR BETTER PARSING
+                key = key.lower().strip()
+
+                if key.lower() in valid_keys:
+
+                    data[key] = value
+                
+            
+            # FOR MISSING KEYS
+            for key in valid_keys:
+                if key not in data:
+                    data[key] = "Missing"
+                
+            
+
+            # DEBUG ME
+            if verbose:
+                console.print(data)
+            
+
+            # CONTROL DATA CHAR LENGTH
+            if len(data['content-security-policy']) > 50:
+                console.print(f"max char length triggered --> [yellow]{sub_domain}", style="bold red")
+                data["content-security-policy"] = f"{len(data['content-security-policy'])} Chars"
+                
+
+
+            
+            # GET VARS
+            server = data['server']
+            x_powered_by = data['x-powered-by']
+            x_frame_options = data['x-frame-options']
+            content_security_policy = data['content-security-policy']
+            strict_transport_security = data['strict-transport-policy']
+            refer_policy = data['refer-policy']
+            
+
+            dataa = [
+
+                (f"Server: {server}"),
+                (f"x-powered-by: {x_powered_by}"),
+                (f"x-frame-options: {x_frame_options}"),
+                (f"content-security-policy: {content_security_policy}"),
+                (f"strict-transport-security: {strict_transport_security}"),
+                (f"refer-policy: {refer_policy}")
+
+            ]        
+
+
+            
+            # RETURN RESULTS 
+            return dataa
+        
+        except Exception as e:
+            console.print(f"[bold red]Exception Error:[yellow] {e}")
+
+            return False
 
     
 
+
+    
     @staticmethod
     def get_subdomains(sub_path):
         """This method will be responsible for pulling subdomains // might be from json or hardcoded"""
@@ -587,9 +797,6 @@ class Requests_Subdomain_Scanner():
         # CHOOSE WEATHER TO USE REQUEST OR DNS.RESOLVER LIBARY FOR QUERIES
         method = 1
 
-
-
-
         # STOP OUTPUT PRINT // THINK OF THIS AS VERBOSE CONTROL LOL
         use = False
 
@@ -612,6 +819,13 @@ class Requests_Subdomain_Scanner():
                     # NOW TO GET THE IP OF THE SUBDOMAIN AND INCREASE SUB COUNT
                     ip = socket.gethostbyname(f"{sub}.{domain}")
                     cls.subs_up += 1
+                   # console.print("found")
+
+
+
+                    # GET HEADERS INFO
+                    headers = Requests_Subdomain_Scanner.get_headers(sub=sub, domain=domain)
+   
 
 
                     if use:
@@ -620,7 +834,13 @@ class Requests_Subdomain_Scanner():
                     else:
                         
                         # OUTPUT DATA TO TABLE AND APPEND TO LIST
-                        table.add_row(f"{sub}.{domain}", "-->", f"{data}") 
+                        c1 = "bold green"
+                        c2 = "bold blue"
+                        res = (f"{headers[0]}  |   {headers[1]}\n{headers[2]}   |   {headers[3]}\n{headers[4]}   |   {headers[5]}") if headers else "Failed to Fetch Headers, Might be a 200 --> 404"
+
+                        
+                        table.add_row(f"{sub}.{domain}", "-->", f"{data}", f"{res}") 
+                        table.add_section()
                         cls.subs_active.append(f"{sub}.{domain}")
 
 
@@ -657,11 +877,13 @@ class Requests_Subdomain_Scanner():
 
                         table.add_row(f"{sub}.{domain}", "-->", f"{ip}")       
 
+            def error(type, error_message):
+                """error"""
 
+                console.print(f"[bold red]{type}:[yellow] {error_message}")
         
         # DNS EXCEPTIONS
         except  dns.resolver.NXDOMAIN as e:
-
             if use:
                 console.print(f"[bold red]DNS Resolver Error:[yellow] {e}")
 
@@ -678,7 +900,6 @@ class Requests_Subdomain_Scanner():
         
         # REQUEST EXCEPTIONS
         except requests.ConnectTimeout as e:
-
             if use:
                 console.print(f"[bold red]Timeout Error:[yellow] {e}")
 
@@ -688,7 +909,6 @@ class Requests_Subdomain_Scanner():
             if use:
                 console.print(f"[bold red]Requests Error:[yellow] {e}")
         
-
 
         except Exception as e:
             if use:
@@ -711,7 +931,7 @@ class Requests_Subdomain_Scanner():
         sub_scanner = Requests_Subdomain_Scanner()
         subdomains = Requests_Subdomain_Scanner.get_subdomains(sub_path=str(sub_path))
         subdomain_count = len(subdomains)
-        current = 0
+        current = 0     # THIS VARIABLE IS DEAPPRECIATED // NO LONGER IN USE | REPLACEMENT IS --> cls.subs_up
         lock = threading.Lock()
 
 
@@ -725,6 +945,7 @@ class Requests_Subdomain_Scanner():
         table.add_column("Subdomain",style="bold blue")
         table.add_column("-->", style="bold red")
         table.add_column("IP Address", style="bold green")
+        table.add_column("Header Info")
 
 
         # START TIMER
@@ -733,36 +954,32 @@ class Requests_Subdomain_Scanner():
 
 
         # MAKE SURE THE USER DOESNT OVERWHELM THERE ROUTER
-        if sub_path == "2" and delay < .5:
+        if sub_path in ["2", "3"] and delay < .5:
             delay = 1
+            console.print(f"[bold red]Your delay was overriden and changed to:[/bold red] {delay}\n[bold green]This was done to prevent Network Exshaustion")
 
 
 
-        # BEGIN THREADING SCAN    
-        with Live(table, console=console, refresh_per_second=4):
-            with requests.Session() as sus:     
-                with ThreadPoolExecutor(max_workers=thread_count) as executor:
-                        
-                    try:
+        # BEGIN THREADING SCAN  
+        try:  
+            with Live(table, console=console, refresh_per_second=.01):
+                with requests.Session() as sus:     
+                    with ThreadPoolExecutor(max_workers=thread_count) as executor:
                         for sub in subdomains:
-                            
+                            executor.submit(sub_scanner.subdomain_scanner, sub, domain, current, subdomain_count, table, sus)
+
+
                             # THIS WILL BE USED TO LIMIT THE AMOUNT OF REQUESTS SENT PER SECOND
                             if lol == 30: 
-
                                 time.sleep(delay)
                                 lol = 0
 
                             lol += 1
-
                             current += 1
-                            executor.submit(sub_scanner.subdomain_scanner, sub, domain, current, subdomain_count, table, sus)
-                            #panel.renderable = (f"[bold green]Total Subdomains Found:[/bold green] {self.subs_up}/{subdomain_count}  [bold green]Task Count:[/bold green] {current}/{subdomain_count}")
-                        
 
-
-                    except Exception as e:
-                        console.print(f"[bold red]Exception Error:[yellow] {e}")
-                        input("[bold red]errorrrrrrrrrrrrrrrrrr: ")
+        except Exception as e:
+            console.print(f"[bold red]Exception Error:[yellow] {e}")
+            input("[bold red]errorrrrrrrrrrrrrrrrrr: ")
 
 
 
@@ -806,7 +1023,8 @@ class Requests_Subdomain_Scanner():
         # FUTURE LOGIC WILL USE THIS LINE TO PULL INFO FROM THE SETTINGS MODULE TO GET USER SETTINGS
 
         
-
+        
+        # CHECK IF THERE IS A DOMAIN TO SCAN IF NOT | TARGET == FALSE (SKIP)
         if  target:
             domain = str(target) 
 
@@ -822,9 +1040,6 @@ class Requests_Subdomain_Scanner():
             from nsm_settings import File_Saving
             File_Saving.push_info(save_data=[cls.results_json, cls.results_txt], save_type="4")
 
-            
-            # PERFORM GREATNESS
-            results = Requests_Subdomain_Scanner.threader(domain=domain, sub_path=sub_path, thread_count=thread_count)
 
             return results
         
@@ -879,8 +1094,8 @@ class Module_Controller():
                 return target
         
 
-    @staticmethod
-    def get_domain_request(target: str):
+    @staticmethod  # THIS METHOD IS DEAPPRECIATED FOR CONSISTENT UP TO DATE RESULTS USE --> get_domain_newer 
+    def get_domain_request(target: str) -> tuple:
         """This will be a helper method for get_ip_domain <- to check if the user has provided a domain"""
 
         
@@ -1037,7 +1252,7 @@ class Module_Controller():
 
     
     @staticmethod
-    def controller():
+    def controller(scan_type=1, sub_path="1", dir_path="1"):
         """This will be in charge of Multi-Module Logic"""
 
 
@@ -1061,15 +1276,15 @@ class Module_Controller():
         
 
         # PERFORM PORT SCAN
-        results_open_ports = Socket_Port_Scanner.main(target=ip)
+        results_open_ports = Socket_Port_Scanner.main(target=ip, scan_type=scan_type)
 
 
         # PERFORM SUBDOMAIN ENUMERATION
-        results_sub_domains = Requests_Subdomain_Scanner.main(target=domain, sub_path="2")
+        results_sub_domains = Requests_Subdomain_Scanner.main(target=domain, sub_path=sub_path)
 
 
         # PERFORM DIRECTORY ENUMERATION
-        results_directories = Requests_Directory_Scanner.main(sub_domains=results_sub_domains, dir_path="2")
+        results_directories = Requests_Directory_Scanner.main(sub_domains=results_sub_domains, dir_path=dir_path)
 
 
         # PERFORM NMAP VULNERABILITY SCAN // NSE
@@ -1106,7 +1321,7 @@ class Module_Controller():
 if __name__ == "__main__":
 
 
-    start = 2
+    start = 3
 
 
     if start == 1:
@@ -1116,16 +1331,17 @@ if __name__ == "__main__":
 
     elif start == 2:
 
-        ip = "discord.com"
+        ip = "youtube.com"
 
-        Requests_Subdomain_Scanner.main(target=ip)
+        Requests_Subdomain_Scanner.main(target="carmax.com")
 
 
 
     elif start == 3:
 
         ip = socket.gethostbyname("google.com")
-
+        Socket_Port_Scanner.Sub_Utilities.ip = socket.gethostbyname("discord.com")
+        Socket_Port_Scanner.Sub_Utilities.domain = "discord.com"
         Socket_Port_Scanner().threader(
             ip=ip, 
             thread_count=700, 

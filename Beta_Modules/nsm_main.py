@@ -20,7 +20,7 @@ class  Import_Handler():
         try:
 
             # UI IMPORTS
-            print("ui")
+            print("importing --> ui")
             from rich.panel import Panel
             from rich.table import Table
             from rich.live import Live
@@ -29,12 +29,12 @@ class  Import_Handler():
 
 
             # NETWORK IMPORTS
-            print("network")
+            print("importing --> network")
             import socket, ipaddress, dns
 
 
             # ETC IMPORTS
-            print("etc")
+            print("importing --> etc")
             import threading, time, random, requests, os
             from concurrent.futures import ThreadPoolExecutor
             import pyttsx3
@@ -49,7 +49,7 @@ class  Import_Handler():
 
 
             # FILE HANDLING
-            print("file handling")
+            print("importing --> file handling")
             from pathlib import Path
             import json
 

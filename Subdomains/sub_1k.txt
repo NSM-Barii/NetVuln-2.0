@@ -1,3 +1,6 @@
+www
+wp-admin
+wp-js
 accounting
 accounting-backup
 accounting-dev

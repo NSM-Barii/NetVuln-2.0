@@ -133,7 +133,7 @@ class NetTilities():
             elif choice == "n" or choice == "no" or choice == "0":
                 console.print("[bold green]\nOpenAI:[bold red] Fine skip me, I HATED YOU ANYWAYS")
                 time.sleep(1)
-                return
+                return "User Skipped Scan."
         
 
         # PRINT ALL THE AGGREGATED RESULTS CURRENT BEING HELD FOR USER TO SEE
@@ -352,7 +352,7 @@ class NetTilities():
 
 
     @staticmethod    # NOT YET FINISHED
-    def get_WPSscan_info():
+    def get_WPSscan_info(target:str):
         """This method will be responsible for pulling wpsscan info"""
 
 
@@ -365,7 +365,7 @@ class NetTilities():
 
         try:
             
-            url = f"https://suckmydick"
+            url = f"https://wpscan.com/api/v3/{target}"
             headers = {
                 "Authorization": api_key
             }

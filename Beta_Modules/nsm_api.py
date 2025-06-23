@@ -82,6 +82,7 @@ class API_Puller():
             data = {
                 "query": str({target}),
                 "api_key": api_key,
+                "maxsearchsize": 500
             }
             
             try:
@@ -163,7 +164,6 @@ class API_Puller():
             console.print(f"[bold red]Exception Error:[yellow] {e}")
 
 
-    
 
     @staticmethod
     def pull_shodan_info(target:any, retry=2):
@@ -199,7 +199,6 @@ class API_Puller():
 
         except Exception as e:
             console.print(f"[bold red]Exception Error:[yellow] {e}")
-
 
 
 
@@ -257,7 +256,7 @@ if __name__ == "__main__":
     target = socket.gethostbyname("discord.com")
  
     results_vulners = API_Puller.pull_vulners_info(target=target)
-
+    console.print(results_vulners)
     results_shodan = API_Puller.pull_shodan_info(target=target)
     
     while True:

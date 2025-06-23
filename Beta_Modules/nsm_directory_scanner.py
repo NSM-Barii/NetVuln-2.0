@@ -59,6 +59,9 @@ class Requests_Directory_Scanner():
     results_dir_json = {}
     results_dir_txt = []
 
+    # SET BASE SERVER & X-POWERED-BY
+    root_url = ""
+
 
     def __init__(self):
         pass
@@ -89,19 +92,16 @@ class Requests_Directory_Scanner():
             # PERFORM DIR SCAN
             url = f"https://{sub_domain}/{dir}"
             with session as sus:
-                response = sus.get(url=url, timeout=timeout, allow_redirects=True)
-                r = requests.get(url=url)
-                
-                #r.headers
+                response = sus.get(url=url, timeout=timeout, allow_redirects=False)
 
 
             content_len = len(response.text)
 
             
             # USED AS A WAY TO FILTER FOR STATUS CODES
-            if response.status_code == 200 or response.status_code == 301:
+            if response.status_code in [200,302]:
                 rep = True
-           
+
 
             # CHECK TO MAKE SURE RESPONSE STATUS CODE IS VALID
             if rep and abs(content_len - baseline_len) > 20:
@@ -109,10 +109,29 @@ class Requests_Directory_Scanner():
                 if verbose:
                     console.print(f"[bold green]Status Code:[yellow] {response.status_code}[/yellow]  -->  [bold red]{url}")
                     time.sleep(5)
+            
+                    
 
                 else:
                     if cls.delete == False and cls.dirs_up < 25:
-                        table.add_row(f"{url}", "-->", f"{response.status_code}")
+                         
+                        # VALIDATE HEADERS
+                        headers_unvalidated = Requests_Directory_Scanner.get_headers(headers=response.headers)
+                        headers_validated = Requests_Directory_Scanner.track_headers(url=sub_domain, headers=headers_unvalidated)
+
+
+                        # ADD SECTION IF ROOT != SUB
+                        if headers_validated != "[bold blue]Dir[/bold blue] == [bold green]Sub[/bold green]":
+                            table.add_section() 
+ 
+                        # APPEND TO TABLE
+                        table.add_row(f"{url}", "-->", f"{response.status_code}", f"{headers_validated}")
+
+                        
+                        # AND AGAIN
+                        if headers_validated != "[bold blue]Dir[/bold blue] == [bold green]Sub[/bold green]":
+                            table.add_section() 
+
                     
                     elif cls.delete == False:
                         cls.delete = True
@@ -164,7 +183,7 @@ class Requests_Directory_Scanner():
             if verbose:
                 console.print(f"[bold red]Exception Error:[yellow] {e}")
             cls.errors += 1
-
+      
 
     @classmethod
     def get_directories(cls, dir_path="1"):
@@ -236,7 +255,7 @@ class Requests_Directory_Scanner():
 
 
     @classmethod
-    def threader(cls, sub_domain: str, dir_path="1", thread_count=250, timeout=1):
+    def threader(cls, sub_domain: str, dir_path="1", thread_count=250, timeout=1, delay=1):
         """This method will be responsible for using the directory_scanner <-- and threading through it"""
          
 
@@ -266,16 +285,17 @@ class Requests_Directory_Scanner():
         table.add_column("Directory", style="bold blue")
         table.add_column("-->", style="bold red")
         table.add_column("Status Code", style="bold green")
+        table.add_column("Header Info")
 
 
         # KEEP TRACK OF TIME
         time_start = time.time()
         cls.delete = False
         lol = 0
-        delay = 1
+
         
         try:
-            with Live(table, console=console, refresh_per_second=.1, transient=cls.delete ): 
+            with Live(table, console=console, refresh_per_second=.01, transient=cls.delete ): 
 
                 # REQUEST SESSION
                 with requests.Session() as sus:
@@ -288,6 +308,7 @@ class Requests_Directory_Scanner():
                                 time.sleep(delay)
                                 lol = 0
                             
+                            time.sleep(.01) # TO PREVENT RENDER FUCKUPS
                             lol += 1
 
                         
@@ -338,10 +359,269 @@ class Requests_Directory_Scanner():
         # RESET DIRECTORIES FOUND  // ERRORS
         cls.dirs_up = 0
         cls.delete = False
+    
+    
+    @staticmethod
+    def get_headers(headers:str, verbose=False):
+        """This method will be responsible for actually pulling the header info"""
 
+
+        # DESTROY ERRORS
+        verbose = verbose
+
+
+        # ITER THROUGH HEAD
+        data = {}
+        valid_keys = [
+                "server", "x-powered-by", "x-frame-options", "content-security-policy", "strict-transport-policy", "refer-policy" 
+                ]
+
+
+        # PARSE DATA
+        for key, value in headers.items():
+
+            if key.strip().lower() in valid_keys:
+                data[key.strip().lower()] = value if value else "Missing"
+
+
+        # FOR KEYS NOT GIVEN
+        for key in valid_keys:
+
+            if key not in data:
+                data[key] = "Missing"
+
+        
+        if verbose:
+            console.print(data)
+
+        
+        # RETURN DATA
+        return data
+
+
+    @classmethod
+    def track_headers(cls, url:str, timeout=3, headers=False):
+        """This method will be responsible for seeing if the dir headers is equal to or differnt then the root headers"""
+
+
+
+        # DESTROY ERROS
+        verbose = False
+        cls.failed = False
+
+        
+
+        if cls.root_url != url:
+
+            # IMPORTANT VARIABLES // LEARN THESE HEADERS AND THE ATTACKS ASSOCIATED WITH THEM VIA EXPLOIT
+            cls.server = ""
+            cls.x_powered_by = ""
+            cls.x_frame_options = ""         # Directly enables clickjacking if missing 
+            cls.content_security_policy = ""  #  CSP // Missing/weak CSP = easy path to XSS or iframe abuse
+            cls.strict_transport_policy = ""  # HSTS // Missing = can allow downgrade attacks or MITM
+            cls.refer_policy = ""           # Can leak sensitive internal URLs via headers
+
+
+            # I AM ROOT
+            cls.root_url = url
+
+
+            if verbose:
+                console.print(f"Successfully changed root_url --> {url}", style="bold green")
+
+
+            # VALID KEYS
+            valid_keys = [
+                "server", "x-powered-by", "x-frame-options", "content-security-policy", "strict-transport-policy", "refer-policy" 
+                ]
+            
+            valid_status_codes = [200, 301, 302]
+
+            
+            # GIVE THE PROGRAM 3 TRIES TO TRY AND REACH THE SUB // THESE HEADERS ARE IMPORTANT // LOL 
+            loop = 1
+
+            while True:
+                try:
+                    
+                    
+                
+                    # GET ROOT HEADERS
+                    root_url = f"https://{url}"
+                    response = requests.get(url=root_url, timeout=timeout, allow_redirects=False)
+
+                    if response.status_code in valid_status_codes:
+
+                        # GET HEADERS AND GET TO PARSING
+                        data = {}
+                        headers = response.headers
+                        
+
+
+                        # PARSE DATA
+                        for key, value in headers.items():
+
+                            if key.strip().lower() in valid_keys:
+                                data[key.strip().lower()] = value if value else "Missing"
+
+
+                        # FOR KEYS NOT GIVEN
+                        for key in valid_keys:
+
+                            if key not in data:
+                                data[key] = "Missing"
+                        
+                        
+                        
+                        # MAP METHOD VARIABLES FOR ELSE TRIGGERS
+                        cls.server = data.get('server', 'Not Found')
+                        cls.x_powered_by = data.get('x-powered-by', 'Not Found')
+                        cls.x_frame_options = data.get('x-frame-options', 'Missing')
+                        cls.content_security_policy = data.get('content-security-policy', 'Missing')
+                        cls.strict_transport_policy = data.get('strict-transport-policy', 'Missing')
+                        cls.refer_policy = data.get('refer-policy', 'Missing')
+                        
+
+
+                        if verbose:
+                            console.print(data)
+
+
+                        
+                        # OUTPUT SUB HEADERS
+                        console.print(f"[bold green]Sub Headers:[/bold green] {data}")
+
+                        break
+
+
+                
+                except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError) as e:
+
+                    if verbose:
+                        console.print(f"[bold red]Requests Timeout or Connection Error:[yellow] {e}")
+
+                    if loop < 3:
+                        console.print("[bold green]Failed to get sub headers: [yellow]Reattempting...", style='yellow')
+                        loop += 1
+                        timeout +=1
+                    
+                    else:
+                        console.print("[bold green]3 Failed Attempts: [yellow]I GIVE UP\nDir output by default will be Dir != Sub")
+                        cls.failed = True # TELL THE ELIF STATEMENT TO SHOW HEADERS // ROOT != SUB
+                        break
+
+                except Exception as e:
+                    console.print(f"[bold red]Exception Error:[yellow] {e}")
+                    console.print("Dir output by default will be Dir != Sub")
+                    cls.failed = True # TELL THE ELIF STATEMENT TO SHOW HEADERS // ROOT != SUB
+                    break
+        
+
+        
+        # CHECK IF DIR_HEADERS == ROOT_HEADERS
+        elif headers:
+
+            # IF ALL FIELDS ARE VALID
+            root_sub = 0
+
+            # SET CHECKERS
+            headers_server = True if cls.server == headers['server'] else False
+            headers_x_powered_by = True if cls.x_powered_by == headers['x-powered-by'] else False
+
+            
+            # IF ANY OF THESE GIVE FALSE COULD BE SIGN OF A VULN
+            headers_x_frame_options = True if cls.x_frame_options == headers['x-frame-options'] else False
+            headers_content_security_policy = True if cls.content_security_policy == headers['content-security-policy'] else False
+            headers_strict_transport_policy = True if cls.strict_transport_policy == headers['strict-transport-policy'] else False
+            headers_refer_policy = True if cls.refer_policy == headers['refer-policy'] else False
+
+
+
+
+            # AGGREGATE RESULTS
+            sub_data = {
+                "Server": headers_server,
+                "x-powered-by": headers_x_powered_by,
+                "x-frame-options": headers_x_frame_options,
+                "content-security-policy": headers_content_security_policy,
+                "strict-transport-policy": headers_strict_transport_policy,
+                "refer-policy": headers_refer_policy
+            }
+
+            
+
+            # THIS WILL TELL THE USER IF SERVER & X-POWERED-BY != ROOT
+            if headers_server == True and headers_x_powered_by == True:
+
+                if verbose:
+                    console.print(f"server is: {headers_server} & x-powered-by is: {headers_x_powered_by}")
+
+
+                root_sub += 1
+            
+            else:
+
+                if verbose:
+                    console.print(f"[bold red]server and x-powered-by are not Valid[/bold red]\nRoot != Sub\nServer: {headers_server}  -  X-Powered-By: {headers_x_powered_by}")
+            
+            
+
+            # FOR OTHER SECURITY HEADERS
+            if headers_x_frame_options == True and headers_content_security_policy == True and headers_strict_transport_policy == True and headers_refer_policy == True:
+
+                if verbose:
+                    console.print(f"Server Security Headers are Valid\n Root == Sub")
+                
+
+                root_sub += 1
+            
+            else:
+
+                if verbose:
+                    console.print(f"[bold red]Server Security Headers are not Valid[/bold red]\nRoot != Sub\n{data}")
+
+            
+
+            # GENERAL DEBUGGING
+            if verbose:
+                console.print(f"Validation: {sub_data}")
+            
+
+            # FORMAT OUTPUT FOR ROOT != SUB
+            sub_return = [
+                f"Server: {headers['server']}   |   X-Powered-By: {headers['x-powered-by']}",
+                f"X-Frame-Options: {headers['x-frame-options']}  |   Content-Security-Policy: {headers['content-security-policy']}",
+                f"Strict-Transport-Policy: {headers['strict-transport-policy']}   |   Refer-Policy: {headers['refer-policy']}"
+            ]
+             
+            sub_return = '\n'.join(sub_return)
+            
+            
+            # THIS WILL ACTIVATE IF THE SUB HEADER FAILED TO CAPTURE // MAKING ROOT != SUB BY DEFAULT
+            if cls.failed:
+                root_sub = 0
+                cls.failed = False
+            
+
+            #from random import randint
+
+            #root_sub = randint(0,2) # USE THIS TO TEST LOGIC 
+
+            return "[bold blue]Dir[/bold blue] == [bold green]Sub[/bold green]" if root_sub == 2 else sub_return 
+       
+        
+        
+
+        # IF HEADERS != TRUE
+        else:
+
+            console.print(f"Failed to find valid headers --> {url} ")
+            return "[bold red]No valid headers was given or found"
+
+            
     
     @classmethod
-    def main(cls, sub_domains:str, dir_path="1", thread_count=500, delay=.2, timeout=1 ) -> list:
+    def main(cls, sub_domains:str, dir_path="1", thread_count=2000, delay=.7, timeout=1) -> list:
         """This method will be responsible for handling class wide logic"""
 
 
@@ -369,8 +649,13 @@ class Requests_Directory_Scanner():
                     
                     # DELAY TO PREVENT OVERWHELMING
                     time.sleep(delay)
-                    
-                    Requests_Directory_Scanner.threader(sub_domain=domain, thread_count=thread_count, dir_path=dir_path, timeout=timeout)
+
+
+                    Requests_Directory_Scanner.track_headers(url=domain,timeout=3) # TRACK THAT BIH
+                    Requests_Directory_Scanner.threader(sub_domain=domain, thread_count=thread_count, dir_path=dir_path, timeout=timeout, delay=delay)
+
+
+                    Requests_Directory_Scanner.root_url = ""   # RESET ROOT FOR NEXT SUBDOMAIN
 
                     
                 if verbose:
@@ -613,19 +898,46 @@ if __name__ == "__main__":
 
     use = 1
 
+
     if use == 1:
+
+        from nsm_target_scanner import Requests_Subdomain_Scanner
+
+        url = "discord.com"
         
-        sub_domains = ["youtube.com", "files.google.com", "printer.discord.com", "blog.discord.com", "admin.google.com", "app.discord.com", "blog.google.com", "google.com"]
-        Requests_Directory_Scanner.main(sub_domains=sub_domains)
+        subs = Requests_Subdomain_Scanner.main(target=url)
+        Requests_Directory_Scanner.main(sub_domains=subs)
+
     
 
-    if use == 2:
+    elif use == 3:
 
-        sub_domains = ["youtube.com", "files.google.com", "printer.discord.com", "blog.discord.com", "admin.google.com", "app.discord.com", "blog.google.com", "google.com"]
-        Resolver_Directory_Scanner.main(sub_domains=sub_domains)
+
+        url = "https://weseeuinc.org/wp-admin"
+        
+
+        use = False
+        if use:
+            response = requests.get(url=url, allow_redirects=True)
+
+            for key, value in response.headers.items():
+
+                console.print(f"{key} --> {value}")
 
 
         
+        headers = {
+            "log": "password",
+            "pwd": "123"
+        }
+        print("\n\n")
+        response = requests.post(url=url, json=headers)
+        console.print(response.status_code,"\n\n") 
+        for key, val in response.headers.items():
+
+            console.print(f"{key} --> {val}")
+    
+
 
 
 
