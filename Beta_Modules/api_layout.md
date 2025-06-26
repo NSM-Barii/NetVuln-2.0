@@ -15,3 +15,10 @@ QUERY BASED --> CVE ID
 - GreyNoise CVE intel
 - AlienVault OTX
 - MITRE ATT&CK
+
+
+
+
+
+
+# DIR -->  DMARC, DCIM, SPF  <-- DNS

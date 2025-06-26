@@ -50,6 +50,9 @@ base_dir.mkdir(parents=True, exist_ok=True)
 class Socket_Port_Scanner():
     """This class will be responsible for performing a TCP port scan on the target device"""
 
+    num = ""
+    scans = {}
+
 
     class Sub_Utilities():
         """This will be a subclass set inside a class used for utilities"""
@@ -184,9 +187,9 @@ class Socket_Port_Scanner():
 
                         
 
-                        return version
+                        return [version, version]
                     
-                    return "N/A"
+                    return ["N/A", "N/A"]
                 
 
 
@@ -199,7 +202,7 @@ class Socket_Port_Scanner():
                         console.print(f"[bold red]Exception Error:[yellow] {e}")
 
                     # RETURN N/A VERSION
-                    return "N/A"
+                    return ["N/A", "N/A"]
         
 
         @classmethod
@@ -237,6 +240,11 @@ class Socket_Port_Scanner():
 
                     # GET INFO FROM HEADERS
                     headers = response.headers
+                    valid = [
+                        "server", "x-powered-by", "strict-transport-security", 
+                        "content-security-policy", "x-frame-options", "x-content-type-options",
+                        "x-xss-protection", "set-cookie"
+                        ]
 
                     
                     # GET HEADERS AND PARSE THAT MOTHER FUCKERRR
@@ -248,21 +256,29 @@ class Socket_Port_Scanner():
                         # LOWER FOR BETTER PARSING
                         key = key.lower().strip()
 
-                        if key.lower() in ["server", "x-powered-by", "strict-transport-security", "content-security-policy", "x-frame-options", "x-content-type-options"]:
+                        if key.lower() in valid:
 
                             data[key] = value
                     
 
+                    # NOW FOR ETC INFO
+                    # for key, value in headers.items():
+                    #   data[key.lower()] = value
+                    
+
                     # CONTROL DATA CHAR LENGTH
                     if len(data.get("content-security-policy", "")) > 50:
-                        #console.print(f"max char length triggered --> {cls.domain}", style="bold red")
                         data["content-security-policy"] = "Max Chars / To many chars given from site"
+                    
 
+                    if len(data.get('set-cookie', "") ) > 500:
+                        data['set-cookie'] = "Max Chars / To many chars given from site"
 
                     
                     # GET VARS
                     server = data.get("server", "Not found")
                     x_powered_by = data.get("x-powered-by", "Not found")
+                    x_xss_protection = data.get("x-xss-protection", "Not Found")
                     strict_transport_security = data.get("strict-transport-security", "Missing")
                     content_security_policy = data.get("content-security-policy", "Missing")
                     
@@ -272,21 +288,47 @@ class Socket_Port_Scanner():
                     dataa = [
                         (f"Server: {server}"),
                         (f"x-powered-by: {x_powered_by}"),
+                        (f"x-xss-protection: {x_xss_protection}")
  
                     ]
-
-
-                    # FORMAT DATA LOOK
-                    dataa_pretty = (f"{dataa[0]}\n{dataa[1]}")
                     
-                    if verbose:
-                        console.print(dataa_pretty)
 
                     # CREATE A SECTION
-                    cls.create_sec = 1 if port == 80 else 2
+                    cls.create_sec = True 
 
-                    # RETURN INFO
-                    return dataa_pretty
+
+
+                    # CREATE LIST
+                    DATA = [f"{k}: {v}" for k,v in data.items()]                    
+
+                    # NOW GET A EXTRA SCAN FROM A SOCKET SCAN LOL
+                    data_extra = Socket_Port_Scanner.Sub_Utilities.get_service_version_socket(port=port)
+                    if data_extra[1] != "N/A":
+
+
+
+                        num = 1
+                        # THIS WILL BE THE WAY TO BREAK LINES
+                        for v in data_extra.split('\n'):
+                            data_extra[1] = v
+                            num += 1
+                            
+
+
+                        DATA.append(data_extra)
+
+
+                    # FORMAT DATA LOOK FOR TABLE
+                    dataa = (f"{dataa[0]}\n{dataa[1]}\n{dataa[2]}\n{data_extra}")
+
+
+                    
+                    if verbose:
+                        console.print(dataa)
+                    
+
+                    # RETURN INFO // 0 == TABLE DATA / 1 == SAVE INFO
+                    return [dataa, DATA]
 
             
             
@@ -295,21 +337,21 @@ class Socket_Port_Scanner():
 
                 if verbose:
                     console.print(f"[bold red]Request Timeout Error:[yellow] {e}")
-                return "N/A"
+                return ["N/A", "N/A"]
             
 
             except requests.ConnectionError as e:
 
                 if verbose:
                     console.print(f"[bold red]Requests Connection Error:[yellow] {e}")
-                return "N/A"
+                return ["N/A", "N/A"]
 
             
             except Exception as e:
 
                 if verbose:
                     console.print(f"[bold red]Exception Error:[yellow] {e}")
-                return "N/A"
+                return ["N/A", "N/A"]
         
 
 
@@ -332,22 +374,27 @@ class Socket_Port_Scanner():
 
             # DESTROY ERRORS
             verbose = False
-
-            port = port
             
 
             # DEBUGGING
             if verbose:
                 console.print(f"Port --> {port}")
             
-            # USE REQUEST METHOD
-            if port in [80,443,8443]:
-
-                # ERRORS
-                if verbose:
-                    console.print("using request_scanner")
+            # ERRORS
+            if verbose:
+                console.print("using request_scanner")
             
-                return Socket_Port_Scanner.Sub_Utilities.get_service_version_request(port=port)
+
+            # USE REQUEST METHOD // IF IT RETURNS FALSE TRY SOCKET // IF THAT FAILS THEN "N/A"
+            version_request = Socket_Port_Scanner.Sub_Utilities.get_service_version_request(port=port)
+            
+
+            # RETURN IF TRUE
+            if version_request != "N/A":
+
+                return version_request
+
+                    
             
             # USE RAW SOCKETS METHOD
             else:
@@ -371,8 +418,21 @@ class Socket_Port_Scanner():
         self.ports_open = 0
         self.ports_closed = 0
         self.ports_filtered = 0
-        
+    
 
+    @classmethod  # THIS METHOD WAS CREATED TO FIX HOW VERSION INFO IS PRINTED OUT
+    def track_scans(cls, port=False, service=False):
+        """Track what scan we are on"""
+
+
+        if port:
+            num = (f"{port} - {service}")
+            
+            return num, cls.scans
+
+        return cls.num, cls.scans
+        
+    
     def port_scanner_tcp(self, ip:str, port, table) -> tuple:
         """This method will be responsible for doing a tcp scan on target device"""
 
@@ -401,10 +461,10 @@ class Socket_Port_Scanner():
                     version = Socket_Port_Scanner.Sub_Utilities.main(port=port, table=table) 
                     
                     # FOR ADDING SECTION ON TOP IF 80 IS FIRST
-                    if Socket_Port_Scanner.Sub_Utilities.create_sec == 1:
+                    if Socket_Port_Scanner.Sub_Utilities.create_sec:
                         table.add_section()
 
-                    table.add_row(f"{port}", f"{service}", f"{version}", "OPEN")
+                    table.add_row(f"{port}", f"{service}", f"{version[0]}", "OPEN")
 
                     # CREATE SECTION IF VALID
                     if Socket_Port_Scanner.Sub_Utilities.create_sec:
@@ -415,9 +475,19 @@ class Socket_Port_Scanner():
 
                     if print_text:
                         console.print(f"[bold green]Open Port:[/bold green] {port} --> {service}")
+                    
+
+
+                    # THIS METHOD WILL BE IN CHARGE OF MAKING THE DICT THAT WILL BE SAVED
+                    num, scans = Socket_Port_Scanner.track_scans(port=port, service=service)
+                    scans[num] =  version[1]
+
 
                     self.ports_open += 1
-                    self.ports_found_with_service.append(f"{port} : {service}")
+
+
+                    # THIS IS DEAPPRECIATED AND WILL NO LONGER BE USED // WILL KEEP ACTIVE FOR NOW
+                    self.ports_found_with_service.append(f"{port} : {service} - {version[1]}")
                     
                 
                 # CLOSED
@@ -545,15 +615,23 @@ class Socket_Port_Scanner():
                          
                          )
         results_txt = '\n'.join(results_txt)
+
+
+        a, scan = Socket_Port_Scanner.track_scans()
         
 
         results_json = {
             f"Total_Open_Ports": self.ports_open,
             f"Total_Filtered_Ports": self.ports_filtered,
             f"Total_Closed_Ports": self.ports_closed,
-            f"Active_Ports_with_Service": self.ports_found_with_service                         
+            f"Active_Ports_with_Service": scan                        
         }
+        
 
+        if use:        
+            a, scan = Socket_Port_Scanner.track_scans()
+
+            console.print(scan)
 
 
         # PUSH RESULTS
@@ -601,6 +679,55 @@ class Requests_Subdomain_Scanner():
     
 
 
+
+    @staticmethod
+    def get_website_status(sub_domain:str, timeout=1):
+        """This method was created to fix the problem where i get subdomains that end up being a 404"""
+
+
+        # DESTROY ERRORS
+        verbose = False
+
+        valid = [200, 301, 302, 403]
+        loop = 1
+
+        if verbose:
+            print("hey", sub_domain)
+        
+        while True:
+            try:
+
+                url = f"https://{sub_domain}"
+
+                response = requests.get(url=url, timeout=timeout, allow_redirects=False)
+
+
+                if response.status_code in valid:
+
+                    if verbose:
+                        console.print(f"Url: {url} --> Valid")
+                    
+                    return True
+                
+
+                else:
+                    return False
+
+        
+
+            except Exception as e:
+
+                if verbose:
+                    console.print(f"Failed: {sub_domain} --> Timeout: {timeout}")
+
+                if loop < 3:
+                    timeout += 1
+                    loop +=1
+
+                else:
+                    return False
+
+
     @staticmethod
     def get_headers(sub, domain, timeout=3):
         """This method is used to pull and parse headers for the subdomain"""
@@ -620,6 +747,7 @@ class Requests_Subdomain_Scanner():
 
         try:
             response = requests.get(url=url, timeout=timeout)
+     
 
         
 
@@ -643,8 +771,11 @@ class Requests_Subdomain_Scanner():
         try:
             # GET HEADERS AND PARSE THAT MOTHER FUCKERRR
             headers = response.headers
+
             valid_keys = [
-                    "server", "x-powered-by", "x-frame-options", "content-security-policy", "strict-transport-policy", "refer-policy" 
+                    "server", "x-powered-by", "x-frame-options", 
+                    "content-security-policy", "strict-transport-policy", "refer-policy", 
+                    "x-xss-protection", "set-cookie"
                     ]         
             
 
@@ -677,8 +808,7 @@ class Requests_Subdomain_Scanner():
                 data["content-security-policy"] = f"{len(data['content-security-policy'])} Chars"
                 
 
-
-            
+          
             # GET VARS
             server = data['server']
             x_powered_by = data['x-powered-by']
@@ -686,7 +816,10 @@ class Requests_Subdomain_Scanner():
             content_security_policy = data['content-security-policy']
             strict_transport_security = data['strict-transport-policy']
             refer_policy = data['refer-policy']
+            x_xss_protection = data["x-xss-protection"]
+            set_cookie = data["set-cookie"]
             
+
 
             dataa = [
 
@@ -695,24 +828,28 @@ class Requests_Subdomain_Scanner():
                 (f"x-frame-options: {x_frame_options}"),
                 (f"content-security-policy: {content_security_policy}"),
                 (f"strict-transport-security: {strict_transport_security}"),
-                (f"refer-policy: {refer_policy}")
+                (f"refer-policy: {refer_policy}"),
+                (f"x-xss-protection: {x_xss_protection}"),
+                (f"set-cookie: {set_cookie}")
 
             ]        
 
-
             
+
+            res = (f"{dataa[0]}  |   {dataa[1]}\n{dataa[2]}   |   {dataa[3]}\n{dataa[4]}   |   {dataa[5]}\n{dataa[6]}   |   {dataa[7]}") 
+
+
+
             # RETURN RESULTS 
-            return dataa
+            return res
         
         except Exception as e:
             console.print(f"[bold red]Exception Error:[yellow] {e}")
 
-            return False
+            return "Failed to Fetch Headers, Might be a 200 --> 404"
 
     
-
-
-    
+  
     @staticmethod
     def get_subdomains(sub_path):
         """This method will be responsible for pulling subdomains // might be from json or hardcoded"""
@@ -814,12 +951,19 @@ class Requests_Subdomain_Scanner():
                 rdata = dns.resolver.resolve(sub_domain, "A")
 
                 if rdata:
+
+
+                    # CHECK IF THE SUB-DOMAIN IS ACTUAL VALID
+                    if Requests_Subdomain_Scanner.get_website_status(sub_domain=f"{sub}.{domain}") == False:
+                        return
+
+
                     data = ', '.join([str(r) for r in rdata])
 
                     # NOW TO GET THE IP OF THE SUBDOMAIN AND INCREASE SUB COUNT
                     ip = socket.gethostbyname(f"{sub}.{domain}")
                     cls.subs_up += 1
-                   # console.print("found")
+                   
 
 
 
@@ -836,10 +980,9 @@ class Requests_Subdomain_Scanner():
                         # OUTPUT DATA TO TABLE AND APPEND TO LIST
                         c1 = "bold green"
                         c2 = "bold blue"
-                        res = (f"{headers[0]}  |   {headers[1]}\n{headers[2]}   |   {headers[3]}\n{headers[4]}   |   {headers[5]}") if headers else "Failed to Fetch Headers, Might be a 200 --> 404"
-
                         
-                        table.add_row(f"{sub}.{domain}", "-->", f"{data}", f"{res}") 
+                        
+                        table.add_row(f"{sub}.{domain}", "-->", f"{data}", f"{headers}") 
                         table.add_section()
                         cls.subs_active.append(f"{sub}.{domain}")
 
@@ -1252,12 +1395,13 @@ class Module_Controller():
 
     
     @staticmethod
-    def controller(scan_type=1, sub_path="1", dir_path="1"):
+    def controller(scan_type=2, sub_path="1", dir_path="1"):
         """This will be in charge of Multi-Module Logic"""
 
 
         # OUTPUT WELCOMING UI
         Module_Controller.module_ui()
+        import nsm_api
         
 
         # USER VALIDATION CHECK
@@ -1321,7 +1465,7 @@ class Module_Controller():
 if __name__ == "__main__":
 
 
-    start = 3
+    start = 1
 
 
     if start == 1:

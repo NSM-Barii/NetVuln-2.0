@@ -280,7 +280,7 @@ class File_Saving():
         if save_type == "1":
             cls.paths_made = False
             File_Saving.filename = ""
-
+        
 
 
         # ERROR DEBUGGING
@@ -291,6 +291,8 @@ class File_Saving():
         indent = 4
         ascii = False
         encoding = "utf-8"
+
+
 
 
 
@@ -371,6 +373,7 @@ class File_Saving():
                         
                         if verbose:
                             console.print(f"Successfully Saved json info --> {file}")
+        
                     
 
                     # SAVE RAW AI RESPONSE

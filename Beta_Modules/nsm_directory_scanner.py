@@ -99,7 +99,7 @@ class Requests_Directory_Scanner():
 
             
             # USED AS A WAY TO FILTER FOR STATUS CODES
-            if response.status_code in [200,302]:
+            if response.status_code in [200, 403]:
                 rep = True
 
 
@@ -401,7 +401,9 @@ class Requests_Directory_Scanner():
 
     @classmethod
     def track_headers(cls, url:str, timeout=3, headers=False):
-        """This method will be responsible for seeing if the dir headers is equal to or differnt then the root headers"""
+        """
+        This method will be responsible for seeing if the dir headers is equal to or differnt then the root headers
+        """
 
 
 
@@ -432,10 +434,12 @@ class Requests_Directory_Scanner():
 
             # VALID KEYS
             valid_keys = [
-                "server", "x-powered-by", "x-frame-options", "content-security-policy", "strict-transport-policy", "refer-policy" 
+                "server", "x-powered-by", "x-frame-options", 
+                "content-security-policy", "strict-transport-policy", "refer-policy",
+                "x-xss-protection", "set-cookie"
                 ]
             
-            valid_status_codes = [200, 301, 302]
+            valid_status_codes = [200, 301, 302, 403]
 
             
             # GIVE THE PROGRAM 3 TRIES TO TRY AND REACH THE SUB // THESE HEADERS ARE IMPORTANT // LOL 
@@ -448,6 +452,7 @@ class Requests_Directory_Scanner():
                 
                     # GET ROOT HEADERS
                     root_url = f"https://{url}"
+                    console.print
                     response = requests.get(url=root_url, timeout=timeout, allow_redirects=False)
 
                     if response.status_code in valid_status_codes:
@@ -456,6 +461,9 @@ class Requests_Directory_Scanner():
                         data = {}
                         headers = response.headers
                         
+                        
+                        if verbose:
+                            console.print("got a valid status code")
 
 
                         # PARSE DATA
@@ -480,6 +488,8 @@ class Requests_Directory_Scanner():
                         cls.content_security_policy = data.get('content-security-policy', 'Missing')
                         cls.strict_transport_policy = data.get('strict-transport-policy', 'Missing')
                         cls.refer_policy = data.get('refer-policy', 'Missing')
+                        cls.x_xss_protection = data.get('x-xss-protection', "Missing")
+                        cls.set_cookie = data.get('set-cookie', "Missing")
                         
 
 
@@ -491,6 +501,11 @@ class Requests_Directory_Scanner():
                         # OUTPUT SUB HEADERS
                         console.print(f"[bold green]Sub Headers:[/bold green] {data}")
 
+                        break
+
+                    else:
+                        console.print("Root sub was not a valid status code\nSwitching Sub to != Dir")
+                        cls.failed = True
                         break
 
 
@@ -534,7 +549,8 @@ class Requests_Directory_Scanner():
             headers_content_security_policy = True if cls.content_security_policy == headers['content-security-policy'] else False
             headers_strict_transport_policy = True if cls.strict_transport_policy == headers['strict-transport-policy'] else False
             headers_refer_policy = True if cls.refer_policy == headers['refer-policy'] else False
-
+            headers_x_xss_protection = True if cls.x_xss_protection == headers['x-xss-protection'] else False
+            headers_set_cookie = True if cls.set_cookie == headers['set-cookie'] else False
 
 
 
@@ -545,7 +561,9 @@ class Requests_Directory_Scanner():
                 "x-frame-options": headers_x_frame_options,
                 "content-security-policy": headers_content_security_policy,
                 "strict-transport-policy": headers_strict_transport_policy,
-                "refer-policy": headers_refer_policy
+                "refer-policy": headers_refer_policy,
+                "x-xss-protection": headers_x_xss_protection,
+                "set-cookie": headers_set_cookie
             }
 
             
@@ -567,7 +585,7 @@ class Requests_Directory_Scanner():
             
 
             # FOR OTHER SECURITY HEADERS
-            if headers_x_frame_options == True and headers_content_security_policy == True and headers_strict_transport_policy == True and headers_refer_policy == True:
+            if headers_x_frame_options == True and headers_content_security_policy == True and headers_strict_transport_policy == True and headers_refer_policy == True and headers_x_xss_protection == True and headers_set_cookie == True:
 
                 if verbose:
                     console.print(f"Server Security Headers are Valid\n Root == Sub")
@@ -591,7 +609,8 @@ class Requests_Directory_Scanner():
             sub_return = [
                 f"Server: {headers['server']}   |   X-Powered-By: {headers['x-powered-by']}",
                 f"X-Frame-Options: {headers['x-frame-options']}  |   Content-Security-Policy: {headers['content-security-policy']}",
-                f"Strict-Transport-Policy: {headers['strict-transport-policy']}   |   Refer-Policy: {headers['refer-policy']}"
+                f"Strict-Transport-Policy: {headers['strict-transport-policy']}   |   Refer-Policy: {headers['refer-policy']}",
+                f"X-Xss-Protection: {headers['x-xss-protection']}   |   Set-Cookie: {headers['set-cookie']}"
             ]
              
             sub_return = '\n'.join(sub_return)
@@ -602,10 +621,14 @@ class Requests_Directory_Scanner():
                 root_sub = 0
                 cls.failed = False
             
+            
+            # FOR TESTING
+            RANDOM = False
+            
+            if RANDOM:
+                from random import randint
 
-            #from random import randint
-
-            #root_sub = randint(0,2) # USE THIS TO TEST LOGIC 
+                root_sub = randint(0,2) # USE THIS TO TEST LOGIC 
 
             return "[bold blue]Dir[/bold blue] == [bold green]Sub[/bold green]" if root_sub == 2 else sub_return 
        
@@ -650,8 +673,7 @@ class Requests_Directory_Scanner():
                     # DELAY TO PREVENT OVERWHELMING
                     time.sleep(delay)
 
-
-                    Requests_Directory_Scanner.track_headers(url=domain,timeout=3) # TRACK THAT BIH
+                    Requests_Directory_Scanner.track_headers(url=domain,timeout=3) # TRACK THAT BIHc
                     Requests_Directory_Scanner.threader(sub_domain=domain, thread_count=thread_count, dir_path=dir_path, timeout=timeout, delay=delay)
 
 
@@ -903,7 +925,7 @@ if __name__ == "__main__":
 
         from nsm_target_scanner import Requests_Subdomain_Scanner
 
-        url = "discord.com"
+        url = "flextrafficschool.com"
         
         subs = Requests_Subdomain_Scanner.main(target=url)
         Requests_Directory_Scanner.main(sub_domains=subs)

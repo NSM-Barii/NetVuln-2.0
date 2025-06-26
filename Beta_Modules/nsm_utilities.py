@@ -557,14 +557,15 @@ class Utilities():
 
 
                 # CREATE OBJECT
-                engine = pyttsx3.init()
-                
-                # SET VARIABLES
-                rate = engine.getProperty('rate')
-                voices = engine.getProperty('voices')
-
-
                 try:
+                    engine = pyttsx3.init()
+                    
+                    # SET VARIABLES
+                    rate = engine.getProperty('rate')
+                    voices = engine.getProperty('voices')
+
+
+                
 
                     engine.setProperty('rate', rate - voice_rate)
                     
