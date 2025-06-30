@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 # NSM IMPORTS
 from nsm_utilities import Utilities, NetTilities
 from nsm_target_scanner import Module_Controller
+from nsm_scan import Scan_Controller
 
 
 # CONSTANTS & GLOBALS
@@ -44,6 +45,8 @@ base_dir.mkdir(parents=True, exist_ok=True)
 
 class MainUI():
     """This class will be responsible for controlling how and when the ui is outputted"""
+
+    go = True
 
     def __init__(self):
         pass
@@ -100,7 +103,25 @@ class MainUI():
 
                     count += 1
 
- 
+    
+
+
+    @staticmethod
+    def main_credits():
+        """This method will be responsible for displaying credits"""
+
+        dot = "-" * 70
+        dott = "-" * 20
+
+        console.print(
+        f"       {dot}\n"
+        f"         {dott}  Developed by NSM Barii  {dott}\n"
+        f"       {dot}",
+
+        style="cyan"
+        )
+
+    
     
 
     @staticmethod
@@ -111,7 +132,10 @@ class MainUI():
 
         # PRINT MAIN MENU
         MainUI.main_title()
+        MainUI.main_credits()
         print("\n\n\n\n\n")
+
+        
 
 
         # CHOOSE COLOR
@@ -163,7 +187,11 @@ class MainUI():
 
 
             if choice == "1":
-                Module_Controller.controller()
+                #Module_Controller.controller()
+
+
+                Scan_Controller.controller()
+
 
                 break
 
@@ -208,16 +236,31 @@ class MainUI():
 
     
 
-
-    def main():
+    @classmethod
+    def main(cls):
         """This method will be responsible for looping through core procedures"""
+
+
+
+        # REIMPORT THESE WHICH SHOULD THEORETICALLY REFRESH ALL VARIABLE VALUES 
+        from nsm_utilities import Utilities, NetTilities
+        from nsm_target_scanner import Module_Controller
+        from nsm_scan import Scan_Controller
 
         
         # LOOP THROUGH MULTI-MODULE PROGRAM LOGIC
-        while True:
-            Utilities.clear_screen()
-            NetTilities.get_conn_status()
-            MainUI.main_menu()
+        while cls.go:
+
+            try:
+                Utilities.clear_screen()
+                NetTilities.get_conn_status()
+                MainUI.main_menu()
+            
+
+
+            except KeyboardInterrupt as e:
+                console.print(e)
+                cls.go = False
 
 
 

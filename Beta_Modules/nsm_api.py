@@ -269,30 +269,6 @@ if __name__ == "__main__":
 
 
 
-from pathlib import Path
 
-path = Path.home() / "Documents" / "NSM Tools" / "Network Tools" / "Netvuln 2" / "beta_modules"
-
-lines = 0
-
-try:
-    for file in path.iterdir():
-
-
-        if file.name.split('.')[1]=='py':
-            with open(file, "r") as file:
-
-                content = file.readlines()
-                #console.print(file.name)
-
-                for line in content:
-                    lines += 1
-                
-except Exception as e:
-    pass
-
-
-finally:
-    console.print(f"[bold blue]NetVuln 2.0 is madeup of:[bold green] {lines} Lines of code\n\n")
 
 

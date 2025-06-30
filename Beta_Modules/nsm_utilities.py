@@ -624,7 +624,79 @@ class Utilities():
         # UNIX / LINUX
         elif os.name == "posix":
             return "posix"
+    
+
+    
+    @classmethod
+    def push_to_discord(cls, data, retry=3):
+        """This method will be resposnible for pushing information to discord"""
+
+
+        # DESTROY ERRORS
+        verbose = False
+        attempt = 1
+        timeout = 5
+
+
+        # GRAB DISCORD KEY
+        webhook = File_Handler.get_api_key()['api_key_discord']
+
+
+        headers = {"content-type": "application/json"}
+        payload = {"content": data}
+
+
+
         
+        while attempt <= retry:
+            try:
+
+                response = requests.post(webhook, data=json.dumps(payload), headers=headers, timeout=timeout)
+
+
+                if response.status_code in [200, 204]:
+                    console.print("Successfully pushed info to discord", style="bold green")
+
+                    return
+
+                
+                else:
+                    console.print("Failed to push info to discord", style="bold red")
+
+                    # INCREASE TIMEOUT // INCRAMENT ATTEMPT
+                    timeout += 2
+                    attempt += 1
+
+
+
+
+                
+
+            # DESTROY ERROS
+            except (requests.ConnectionError, requests.Timeout) as e:
+
+                if verbose:
+                    console.print(f"1 Timeout: {timeout} --> Attempt{attempt}", style='yellow')
+            
+                console.print(f"[bold red]Request Error:[yellow] {e}")
+                
+
+                # INCREASE TIMEOUT // INCRAMENT ATTEMPT
+                timeout += 2
+                attempt += 1
+
+            
+
+            except Exception as e:
+
+                if verbose:
+                    console.print(f"2 Timeout: {timeout} --> Attempt{attempt}", style='yellow')
+
+                console.print(f"[bold red]Exception Error:[yellow] {e}")
+
+                # INCREASE TIMEOUT // INCRAMENT ATTEMPT
+                timeout += 2
+                attempt += 1
 
 
 
@@ -715,14 +787,6 @@ class File_Handler():
         while loop:
             if file_path.exists() and file_path.is_dir():
 
-
-                # USE THIS FOR DYNAMIC API KEY SELECTION
-                if path_api == 1:
-                    key = file_path / "api_key_openai"
-                
-                elif path_api == 2:
-                    key = file_path / "api_key_shodan"
-
                 
                 # PATH WAY TO EXTRACT API_KEYS
                 path = file_path / "api_keys.json"
@@ -757,7 +821,8 @@ class File_Handler():
                             "api_key_shodan": "",
                             "api_key_ipinfo": "",
                             "api_key_vulners": "",
-                            "api_key_wpsscan": ""
+                            "api_key_wpsscan": "",
+                            "api_key_discord": ""
                         }
 
                         # PATH WAY TO EXTRACT API_KEYS
@@ -774,6 +839,14 @@ class File_Handler():
                     
                     except Exception as e:
                         console.print(f"[bold red]Exception Error:[yellow] {e}")
+                        
+                        if loop == 3:
+                            loop = False
+                        
+                        else:
+                            loop += 1
+
+
 
     
         
@@ -851,7 +924,7 @@ class File_Handler():
         # NOW TO AGGRAGATE RESULTS AND SAVE IT TO FILE DATA SAVING
         elif save_type == 15:
 
-            AI_SUMMARY = save_data  # JUST IN CASE // LOL
+            cls.AI_SUMMARY = save_data  # JUST IN CASE // LOL
 
             results = {
                 "domain_ip_resolution": cls.ip_domain,
@@ -860,7 +933,7 @@ class File_Handler():
                 "subdomains_found": cls.subs_found,
                 "directories_found": cls.dirs_found,
                 "nmap_results": cls.nmap_found,
-                "AI_Generated_Summary": AI_SUMMARY
+                "AI_Generated_Summary": cls.AI_SUMMARY
             }
 
 
@@ -868,7 +941,7 @@ class File_Handler():
             # SAVE DATA --> FILE STORING
             from nsm_settings import File_Saving
             File_Saving.push_info(save_data=results, save_type="15")
-            
+
 
 
             # RESET CLS VALUES
@@ -885,8 +958,135 @@ class File_Handler():
 
             return results
         
+    
+    
+    @classmethod
+    def push_info_to_discord(cls, save_data=False, save_type=False):
+        """This method will be used to save a summary view of info to then push to discord before giving the full scan results"""
+
+
+        if save_type == 1:
+            cls.sum_ports = save_data
+
+        elif save_type == 2:
+            cls.sum_subs = save_data
+
+        elif save_type == 3:
+            cls.sum_dirs = save_data
         
         
+        elif save_type == 4:
+
+            d1 = "NetVuln 2.0  -  Developed by NSM Barii\nThis is a summary scan report! For the full results please return to the FucKing program DUMBASS!\n\n"
+            troll = "\n\nWould you like to PENETRATE  this website with maxium efficiency? "
+
+            LINE = "-" * 50
+            LINEE = "-" * 20
+
+            
+
+            # PARSE JSON DATA
+            domain = cls.ip_domain[0]
+            ip = cls.ip_domain[1]
+
+            target = f"Target Resolution:  {domain} --> {ip}"
+            
+            # PARSE GEO INFO
+            city = cls.ip_info.get('city', 'N/A')
+            region = cls.ip_info.get('region', 'N/A')
+            country = cls.ip_info.get('country', 'N/A')
+            postal = cls.ip_info.get('postal', 'N/A')
+            timezone = cls.ip_info.get('timezone', 'N/A')
+            loc = cls.ip_info.get('loc', 'N/A')
+            org = cls.ip_info.get('org', 'N/A')
+
+            geo = (
+                f"City:  {city}\n"
+                f"Region:  {region}\n"
+                f"Country:  {country}\n"
+                f"Loc:  {loc}\n"
+                f"Org:  {org}\n"
+                f"Postal:  {postal}\n"
+                f"Timezone:  {timezone}"
+            )
+
+
+            data = (
+                f"{LINE}\n"
+                f"{d1}\n"
+                f"{LINEE}\n"
+                f"{target}\n"
+                f"{LINEE}\n"
+                f"{geo}\n"
+                f"{LINEE}\n"
+                f"{cls.sum_ports}\n"
+                f"{LINEE}\n"
+                f"{cls.sum_subs}\n"
+                f"{cls.sum_dirs}\n"
+                f"{LINEE}\n"
+                f"{troll}"
+            )
+
+
+
+
+            # PUSH INFO TO DISCORD 
+            Utilities.push_to_discord(data=data)
+
+
+            # FLUSH RESULTS
+            cls.sum_ports = ""
+            cls.sum_subs = ""
+            cls.sum_dirs = ""
+        
+
+        else:
+             console.print("\nI DO NOT HAVE PERMISSION TO PUSH INFO TO DISCORD", style="bold red")
+
+
+
+    @staticmethod
+    def get_program_total_lines():
+        """This method will be responsible for getting the total lines of code used to create this program"""
+
+
+        # DISCLAMER THIS WILL ONLY COUNT .PY FILES FROM THE BETA_MODULES FOLDER
+    
+        
+
+        # WINDOWS PATH
+        if Utilities.get_current_os() == "nt":
+
+            path = Path.home() / "Documents" / "NSM Tools" / "Network Tools" / "Netvuln 2" / "beta_modules"
+        
+        elif Utilities.get_current_os() == "posix":
+            
+            return
+
+
+
+        lines = 0
+
+        try:
+            for file in path.iterdir():
+
+
+                if file.name.split('.')[1]=='py':
+                    with open(file, "r") as file:
+
+                        content = file.readlines()
+                        #console.print(file.name)
+
+                        for line in content:
+                            lines += 1
+                        
+        except Exception as e:
+            pass
+
+
+        finally:
+            console.print(f"[bold blue]NetVuln 2.0 is madeup of:[bold green] {lines} Lines of code\n\n")
+                
         
 
 
@@ -896,7 +1096,13 @@ class File_Handler():
 if __name__ == "__main__":
 
 
-    use = 1
+    use = 0
+
+
+    if use == 0:
+        
+        data = "test script"
+        Utilities.push_to_discord(data=data)
 
     if use == 1:
         p = "sending me text back like \n "

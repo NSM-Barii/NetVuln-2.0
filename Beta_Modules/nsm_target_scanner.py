@@ -119,20 +119,20 @@ class Socket_Port_Scanner():
 
             # MAP KNOWN SERVICES // FOR FALL BACK ERRORS
             known_ports = {
-                465: "smtp",
-                587: "smtp",
-                2053: "cloudflare",
-                2082: "cPanel",
-                2083: "cPanel",
-                2086: "whm",
-                2087: "whm",
-                2052: "clearVisn Services",
-                2095: "cPanel Webmail",
-                2096: "cPanel Webmail",
-                2087: "cPanel whm",
-                8080: "Http Alternative",
-                8443: "Https Alternative",
-                8880: "Http Alternative"
+                465: "smtp?",
+                587: "smtp?",
+                2053: "cloudflare?",
+                2082: "cPanel?",
+                2083: "cPanel?",
+                2086: "whm?",
+                2087: "whm?",
+                2052: "clearVisn Services?",
+                2095: "cPanel Webmail?",
+                2096: "cPanel Webmail?",
+                2087: "cPanel whm?",
+                8080: "Http Alternative?",
+                8443: "Https Alternative?",
+                8880: "Http Alternative?"
             }
         
 
@@ -145,11 +145,11 @@ class Socket_Port_Scanner():
 
             except OSError as e:
                 #console.print(f"[bold red]OSError Error:[yellow] {e}")
-                service = known_ports.get(port)
+                service = known_ports.get(port, "N/A?")
             
 
             except Exception as e:
-                console.print(f"[bold red]Exception Error:[yellow] {e}")
+                console.print(f"[bold red]Service Exception Error:[yellow] {e}")
 
             
             finally:
@@ -212,6 +212,7 @@ class Socket_Port_Scanner():
 
             # DEBUGGING
             verbose = False
+            go = True
 
             
             # STORE DATA
@@ -229,129 +230,138 @@ class Socket_Port_Scanner():
             
             if verbose:
                 console.print(url)
+            
 
-            try:
+            # LOOP IN CASE OF 429 // RATE LIMITING
+            while go:
+                try:
 
-                # MAKE THE REQUEST
-                response = requests.get(url=url, timeout=3, allow_redirects=True)
+                    # MAKE THE REQUEST
+                    response = requests.get(url=url, timeout=3, allow_redirects=True)
+                    
+
+                    if response.status_code in [200,204]:
+
+                        # GET INFO FROM HEADERS
+                        headers = response.headers
+                        valid = [
+                            "server", "x-powered-by", "strict-transport-security", 
+                            "content-security-policy", "x-frame-options", "x-content-type-options",
+                            "x-xss-protection", "set-cookie"
+                            ]
+
+                        
+                        # GET HEADERS AND PARSE THAT MOTHER FUCKERRR
+                        headers = response.headers
+                        
+                        for key, value in headers.items():
+
+
+                            # LOWER FOR BETTER PARSING
+                            key = key.lower().strip()
+
+                            if key.lower() in valid:
+
+                                data[key] = value
+                        
+
+                        # NOW FOR ETC INFO
+                        # for key, value in headers.items():
+                        #   data[key.lower()] = value
+                        
+
+                        # CONTROL DATA CHAR LENGTH
+                        if len(data.get("content-security-policy", "")) > 50:
+                            data["content-security-policy"] = "Max Chars / To many chars given from site"
+                        
+
+                        if len(data.get('set-cookie', "") ) > 500:
+                            data['set-cookie'] = "Max Chars / To many chars given from site"
+
+                        
+                        # GET VARS
+                        server = data.get("server", "Not found")
+                        x_powered_by = data.get("x-powered-by", "Not found")
+                        x_xss_protection = data.get("x-xss-protection", "Not Found")
+                        strict_transport_security = data.get("strict-transport-security", "Missing")
+                        content_security_policy = data.get("content-security-policy", "Missing")
+                        
+
+                        
+                        # FORMAT DATA
+                        dataa = [
+                            (f"Server: {server}"),
+                            (f"x-powered-by: {x_powered_by}"),
+                            (f"x-xss-protection: {x_xss_protection}")
+    
+                        ]
+                        
+
+                        # CREATE A SECTION
+                        cls.create_sec = True 
+
+
+
+                        # CREATE LIST
+                        DATA = [f"{k}: {v}" for k,v in data.items()]                    
+
+
+                        # FORMAT DATA LOOK FOR TABLE
+                        dataa = (f"{dataa[0]}\n{dataa[1]}\n{dataa[2]}")
+
+
+                        
+                        if verbose:
+                            console.print(dataa)
+                        
+
+                        # RETURN INFO // 0 == TABLE DATA / 1 == SAVE INFO
+                        return [dataa, DATA]
+                    
+
+                    elif response.status_code == 429:
+                        
+                        console.print(f"triggered rate limiting with port: {port}, retrying at a slower rate to pull website headers\nServer header response: {response.headers}")
+                        time.sleep(3)
+
+                        if go == 2:
+                            
+                            return ["N/A", "N/A"]
+
+                        go = 2
+
+
+                    
+
+                    else:
+
+                        if verbose:
+                            console.print(f"Status code: {response.status_code}")
+
+                        return ["N/A", "N/A"]
+
+            
+            
+                # DESTROY ERRORS
+                except requests.ConnectTimeout as e:
+
+                    if verbose:
+                        console.print(f"[bold red]Request Timeout Error:[yellow] {e}")
+                    return ["N/A", "N/A"]
                 
 
-                if response.status_code == 200:
+                except requests.ConnectionError as e:
 
-                    # GET INFO FROM HEADERS
-                    headers = response.headers
-                    valid = [
-                        "server", "x-powered-by", "strict-transport-security", 
-                        "content-security-policy", "x-frame-options", "x-content-type-options",
-                        "x-xss-protection", "set-cookie"
-                        ]
-
-                    
-                    # GET HEADERS AND PARSE THAT MOTHER FUCKERRR
-                    headers = response.headers
-                    
-                    for key, value in headers.items():
-
-
-                        # LOWER FOR BETTER PARSING
-                        key = key.lower().strip()
-
-                        if key.lower() in valid:
-
-                            data[key] = value
-                    
-
-                    # NOW FOR ETC INFO
-                    # for key, value in headers.items():
-                    #   data[key.lower()] = value
-                    
-
-                    # CONTROL DATA CHAR LENGTH
-                    if len(data.get("content-security-policy", "")) > 50:
-                        data["content-security-policy"] = "Max Chars / To many chars given from site"
-                    
-
-                    if len(data.get('set-cookie', "") ) > 500:
-                        data['set-cookie'] = "Max Chars / To many chars given from site"
-
-                    
-                    # GET VARS
-                    server = data.get("server", "Not found")
-                    x_powered_by = data.get("x-powered-by", "Not found")
-                    x_xss_protection = data.get("x-xss-protection", "Not Found")
-                    strict_transport_security = data.get("strict-transport-security", "Missing")
-                    content_security_policy = data.get("content-security-policy", "Missing")
-                    
-
-                    
-                    # FORMAT DATA
-                    dataa = [
-                        (f"Server: {server}"),
-                        (f"x-powered-by: {x_powered_by}"),
-                        (f"x-xss-protection: {x_xss_protection}")
- 
-                    ]
-                    
-
-                    # CREATE A SECTION
-                    cls.create_sec = True 
-
-
-
-                    # CREATE LIST
-                    DATA = [f"{k}: {v}" for k,v in data.items()]                    
-
-                    # NOW GET A EXTRA SCAN FROM A SOCKET SCAN LOL
-                    data_extra = Socket_Port_Scanner.Sub_Utilities.get_service_version_socket(port=port)
-                    if data_extra[1] != "N/A":
-
-
-
-                        num = 1
-                        # THIS WILL BE THE WAY TO BREAK LINES
-                        for v in data_extra.split('\n'):
-                            data_extra[1] = v
-                            num += 1
-                            
-
-
-                        DATA.append(data_extra)
-
-
-                    # FORMAT DATA LOOK FOR TABLE
-                    dataa = (f"{dataa[0]}\n{dataa[1]}\n{dataa[2]}\n{data_extra}")
-
-
-                    
                     if verbose:
-                        console.print(dataa)
-                    
+                        console.print(f"[bold red]Requests Connection Error:[yellow] {e}")
+                    return ["N/A", "N/A"]
 
-                    # RETURN INFO // 0 == TABLE DATA / 1 == SAVE INFO
-                    return [dataa, DATA]
+                
+                except Exception as e:
 
-            
-            
-            # DESTROY ERRORS
-            except requests.ConnectTimeout as e:
-
-                if verbose:
-                    console.print(f"[bold red]Request Timeout Error:[yellow] {e}")
-                return ["N/A", "N/A"]
-            
-
-            except requests.ConnectionError as e:
-
-                if verbose:
-                    console.print(f"[bold red]Requests Connection Error:[yellow] {e}")
-                return ["N/A", "N/A"]
-
-            
-            except Exception as e:
-
-                if verbose:
-                    console.print(f"[bold red]Exception Error:[yellow] {e}")
-                return ["N/A", "N/A"]
+                    if verbose:
+                        console.print(f"[bold red]sub_utilities Exception Error:[yellow] {e}")
+                    return ["N/A", "N/A"]
         
 
 
@@ -385,14 +395,10 @@ class Socket_Port_Scanner():
                 console.print("using request_scanner")
             
 
-            # USE REQUEST METHOD // IF IT RETURNS FALSE TRY SOCKET // IF THAT FAILS THEN "N/A"
-            version_request = Socket_Port_Scanner.Sub_Utilities.get_service_version_request(port=port)
-            
+            # USE REQUEST METHOD 
+            if port in [80,443,53,2096,8443,8080]:
 
-            # RETURN IF TRUE
-            if version_request != "N/A":
-
-                return version_request
+                return Socket_Port_Scanner.Sub_Utilities.get_service_version_request(port=port)
 
                     
             
@@ -403,7 +409,6 @@ class Socket_Port_Scanner():
                 if verbose:
                     console.print("using socket_scanner")
 
-                
                 return Socket_Port_Scanner.Sub_Utilities.get_service_version_socket(port=port)
 
 
@@ -459,15 +464,17 @@ class Socket_Port_Scanner():
 
                     # GET SERVICE VERSION IF AVAILABLE
                     version = Socket_Port_Scanner.Sub_Utilities.main(port=port, table=table) 
-                    
-                    # FOR ADDING SECTION ON TOP IF 80 IS FIRST
-                    if Socket_Port_Scanner.Sub_Utilities.create_sec:
-                        table.add_section()
 
+
+                    # CREATE SECTION IF VALID
+                    if version[0].strip() != "N/A":
+                        table.add_section()
+                    
+                   # console.print(f"{port} --> {version}")
                     table.add_row(f"{port}", f"{service}", f"{version[0]}", "OPEN")
 
                     # CREATE SECTION IF VALID
-                    if Socket_Port_Scanner.Sub_Utilities.create_sec:
+                    if version[0].strip() != "N/A":
                         table.add_section()
 
                         # RESET VALUE
@@ -529,9 +536,9 @@ class Socket_Port_Scanner():
 
         
         except Exception as e:
-            console.print(f"[bold red]Exception Error:[yellow] {e}")
+            console.print(f"[bold red]socket scanner Exception Error:[yellow] {e}")
     
-
+    
     def threader(self, ip: str, scan_type=1, thread_count=250) -> str:
         """This method is responsible for performing a threaded port scan"""
         
@@ -628,6 +635,10 @@ class Socket_Port_Scanner():
         }
         
 
+
+        # FOR DISCORD // TRASH WAY OF DOING IT, CANT USE CLASS WHEN ITS A SELF
+        Socket_Port_Scanner.track_ports(open=self.ports_open, filtered=self.ports_filtered, closed=self.ports_closed)
+
         if use:        
             a, scan = Socket_Port_Scanner.track_scans()
 
@@ -637,6 +648,33 @@ class Socket_Port_Scanner():
         # PUSH RESULTS
         return [results_json, results_txt]
         
+
+    
+    @classmethod
+    def track_ports(cls, open=False, filtered=False, closed=False, clean=False): 
+        """This method's sole purpose is to provide port info to main method from <-- threader to then pass to discord"""
+        
+
+        # CLEAN IT
+        if clean:
+            cls.dis_open = ""
+            cls.dis_filtered = ""
+            cls.dis_closed = ""
+
+            return
+        
+        
+        # SHOW TIME // GIVE IT TO DISCORD
+        if open == False:
+
+            return cls.dis_open, cls.dis_filtered, cls.dis_closed
+
+
+        # SAVE IT
+        cls.dis_open = open
+        cls.dis_filtered = filtered
+        cls.dis_closed = closed
+
 
 
     @staticmethod
@@ -653,9 +691,11 @@ class Socket_Port_Scanner():
         result = Socket_Port_Scanner().threader(ip=target, scan_type=scan_type, thread_count=thread_count)
 
 
-        # SAVE DATA --> FILE STORING
-        from nsm_settings import File_Saving
-        File_Saving.push_info(save_data=result, save_type="3")
+        # DISCORD SUMMARY --> FILE SENDING
+        from nsm_utilities import File_Handler
+        open, filtered, closed = Socket_Port_Scanner.track_ports()
+        data = (f"Open Ports: {open}\nFiltered Ports: {filtered}\nClosed: {closed}")
+        File_Handler.push_info_to_discord(save_data=data, save_type=1)
 
 
         return result
@@ -1065,7 +1105,7 @@ class Requests_Subdomain_Scanner():
         
     
     @classmethod
-    def threader(cls, domain:str , sub_path: str, thread_count=250, delay = .3):
+    def threader(cls, domain:str , sub_path: str, thread_count=250, delay = .05):
         """This method will be responsible for performing a threaded subdomain scan // making the scan faster for bigger text files"""
 
 
@@ -1075,6 +1115,7 @@ class Requests_Subdomain_Scanner():
         subdomains = Requests_Subdomain_Scanner.get_subdomains(sub_path=str(sub_path))
         subdomain_count = len(subdomains)
         current = 0     # THIS VARIABLE IS DEAPPRECIATED // NO LONGER IN USE | REPLACEMENT IS --> cls.subs_up
+        cls.subs_up = 0 # RESET THIS
         lock = threading.Lock()
 
 
@@ -1100,8 +1141,6 @@ class Requests_Subdomain_Scanner():
         if sub_path in ["2", "3"] and delay < .5:
             delay = 1
             console.print(f"[bold red]Your delay was overriden and changed to:[/bold red] {delay}\n[bold green]This was done to prevent Network Exshaustion")
-
-
 
         # BEGIN THREADING SCAN  
         try:  
@@ -1182,6 +1221,12 @@ class Requests_Subdomain_Scanner():
             # SAVE DATA --> FILE STORING
             from nsm_settings import File_Saving
             File_Saving.push_info(save_data=[cls.results_json, cls.results_txt], save_type="4")
+
+
+            # DISCORD SUMMARY --> FILE SENDING
+            from nsm_utilities import File_Handler
+            data = (f"Total Subdomains Found: {cls.subs_up} out of {len(Requests_Subdomain_Scanner.get_subdomains(sub_path=str(sub_path)))}")
+            File_Handler.push_info_to_discord(save_data=data, save_type=2)
 
 
             return results
@@ -1291,10 +1336,13 @@ class Module_Controller():
             return target if go else False
 
     
-    
     @staticmethod
     def get_ip_domain() -> tuple:
         """This method will be responsible for taking the user inputted target and returning a valid stringed ip along with the domain if one was provided"""
+
+
+        # DESTROY ERRORS
+        verbose = True
 
       
 
@@ -1312,6 +1360,10 @@ class Module_Controller():
         table_ip.add_column(f"Valid IP", style="bold green")
 
 
+        # PREVENT MODULE SWITCHING ERRORS
+        target = ""
+
+
         
         # LOOP FOR EXCEPTIONS
         while True:
@@ -1320,6 +1372,17 @@ class Module_Controller():
 
 
                 target = console.input("\n[bold red]Enter Domain or IP Address: ").strip().lower()
+
+                
+                # IF THE USER WANTS TO EXIT
+                if target in ["exit", "leave", "bye", "1"]:
+                    
+                    # SEND BACK TO UI MODULE
+                    console.print("bye bye", style="bold red")
+                    time.sleep(1)
+                    from nsm_ui import MainUI
+                    MainUI.main()
+                    
                 
 
                 # CHECK TO SEE IF THE TARGET CAN BE RESOLVED TO A VALID IP
@@ -1369,7 +1432,7 @@ class Module_Controller():
 
                 
 
-
+      
                 return str(valid_ip), domain
 
             
@@ -1377,10 +1440,16 @@ class Module_Controller():
             except (ipaddress.AddressValueError, ipaddress.NetmaskValueError) as e:
                 console.print(e)
 
+                if verbose:
+                    console.print("im in get_ip_domain")
+
 
             
             except Exception as e:
                 console.print(f"[bold red]Exception Error:[yellow] {e}")
+
+                if verbose:
+                    console.print("im in get_ip_domain")
 
     
 
@@ -1401,7 +1470,7 @@ class Module_Controller():
 
         # OUTPUT WELCOMING UI
         Module_Controller.module_ui()
-        import nsm_api
+        File_Handler.get_program_total_lines() # SHOW TOTAL LINES OF CODE
         
 
         # USER VALIDATION CHECK
@@ -1443,6 +1512,11 @@ class Module_Controller():
         File_Handler.save_scan_results(save_data=results_sub_domains, save_type=4) # SUBDOMAINS DATA
         File_Handler.save_scan_results(save_data=results_directories[0], save_type=5)  # DIRECTORY DATA
         File_Handler.save_scan_results(save_data=results_nmap[0], save_type=6)  # NMAP DATA 
+
+
+
+        # PUSH SUMMARY TO DISCORD
+        File_Handler.push_info_to_discord(save_type=4)
         
         
         # NOW TO FEED SAVED SCAN INFO TO AI // AND PUSH FINAL INFO TO SAVE DATA FILE

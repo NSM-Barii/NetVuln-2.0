@@ -67,12 +67,146 @@ class Requests_Directory_Scanner():
         pass
 
 
+    
+    @classmethod
+    def track_status_codes(cls, dir, sub=False, get=False, timeout=5):
+        """This method will be responsible for keeping track of status codes"""
+
+
+        # DESTROY ERRORS
+        verbose = False
+
+        
+        # FORMAT THE CODES
+        if get:
+
+            c1 = "bold blue"
+            c2 = "bold green"
+            c3 = "yellow"
+
+            codes = (
+                f"[{c2}]Status Codes: "
+                f"[{c3}]200/204:[{c2}] {cls.codes[200]}  "
+                f"[{c3}]301/302:[{c2}] {cls.codes[300]}  "
+                f"[{c3}]400-403/405:[{c2}] {cls.codes[400]}  "
+                f"[{c3}]500/503:[{c2}] {cls.codes[500]}  "
+
+            )
+
+            return codes
+
+        
+        # REFRESH THE CLASS DICT
+        if sub:
+            cls.codes = {}
+
+            cls.codes[200] = 0
+            cls.codes[300] = 0
+            cls.codes[400] = 0
+            cls.codes[500] = 0
+
+            console.print("codes made", style="bold green")
+
+
+            return
+
+
+        url = f"https://{dir}"
+        
+
+        try:
+            response = requests.get(url=url, timeout=timeout ,allow_redirects=False)
+
+
+            code = response.status_code
+
+
+            if code in [200,204]:
+                cls.codes[200] += 1
+
+
+            elif code in [301,302]:
+                cls.codes[300] += 1
+
+
+            elif code in [400,401,403,405]:
+                cls.codes[400] += 1
+
+            
+            elif code in [500,503]:
+                cls.codes[500] += 1
+
+            
+            if verbose:
+                console.print(cls.codes)
+        
+
+
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            if verbose:
+                console.print(f"[bold red]Request Error:[yellow] {e}")
+
+
+        except Exception as e:
+            if verbose:
+                console.print(f"[bold red]Exception Error:[yellow] {e}")
+
+
+    @classmethod
+    def track_scans(cls, dir, headers, status_code=False):
+        """This class will soley be responsible for creating json file and correctly storing it"""
+
+
+        count = []
+        verbose = False
+
+
+        if verbose:
+            console.print("im in")
+
+
+        try:
+
+            data = {
+            # "dir": dir,
+                "status_code": status_code,
+                "headers":{
+
+                    "server": headers['server'],
+                    "x-powered-by": headers['x-powered-by'],
+                    "x-frame-options": headers['x-frame-options'],            # Directly enables clickjacking if missing 
+                    "content-security-policy": headers['content-security-policy'],    #  CSP // Missing/weak CSP = easy path to XSS or iframe abuse
+                    "strict-transport-policy": headers['strict-transport-policy'],                                  # HSTS // Missing = can allow downgrade attacks or MITM
+                    "refer-policy":  headers['refer-policy'],                                                   # Can leak sensitive internal URLs via headers
+                    "x-xss-protection": headers['x-xss-protection'],
+                    "set-cookie": headers['set-cookie']
+
+                }
+            
+            }
+
+
+        except Exception as e:
+            console.print(e)
+
+
+        if verbose:
+            console.print("track scans worked", data)
+
+
+        # NOW TO RETURN DATA
+        return dir, data
+
+
+
     @classmethod
     def directory_scanner(cls, sub_domain: str, dir: str, table, session, timeout):
         """This method will be responsible for performing dir scanning"""
 
         verbose = False
         rep = False
+
+
         
         try:
 
@@ -99,8 +233,13 @@ class Requests_Directory_Scanner():
 
             
             # USED AS A WAY TO FILTER FOR STATUS CODES
-            if response.status_code in [200, 403]:
+            if response.status_code in [200,204,400,401,403,405,500,503,301,302,307,]:
                 rep = True
+            
+
+            
+            # TRACK THE STAT CODE
+            Requests_Directory_Scanner.track_status_codes(dir=f"{sub_domain}/{dir}")
 
 
             # CHECK TO MAKE SURE RESPONSE STATUS CODE IS VALID
@@ -119,7 +258,7 @@ class Requests_Directory_Scanner():
                         headers_unvalidated = Requests_Directory_Scanner.get_headers(headers=response.headers)
                         headers_validated = Requests_Directory_Scanner.track_headers(url=sub_domain, headers=headers_unvalidated)
 
-
+ 
                         # ADD SECTION IF ROOT != SUB
                         if headers_validated != "[bold blue]Dir[/bold blue] == [bold green]Sub[/bold green]":
                             table.add_section() 
@@ -145,8 +284,15 @@ class Requests_Directory_Scanner():
 
                     # SAVE DATA // TEMP FALSE POS CATCHER
                     if cls.dirs_up < 50:
-                        path = f"{sub_domain}/{dir}"
-                        cls.results_dir_json[path] = (response.status_code)   # JSON
+
+                        path, data = Requests_Directory_Scanner.track_scans(
+                                        dir=f"{sub_domain}/{dir}" ,
+                                        headers=headers_unvalidated, 
+                                        status_code=response.status_code
+                                    )
+                        
+                        
+                        cls.results_dir_json[path] = data   # JSON
                         cls.results_dir_txt.append(f"{sub_domain}/{dir} --> Status Code: {response.status_code}\n")  # TXT
 
                     elif cls.dirs_up == 51:                       
@@ -326,7 +472,12 @@ class Requests_Directory_Scanner():
         cls.subs_finished += 1
 
         # PRINT DIR INFO
-        console.print(f"[bold blue]Total dirs found:[/bold blue] {cls.dirs_up}/{len(cls.dirs_text)}")
+        console.print(f"[bold blue]Total chosen dirs found:[/bold blue] {cls.dirs_up}/{len(cls.dirs_text)}   ",
+                      Requests_Directory_Scanner.track_status_codes(get=True, dir=False)    # PRINT STATUS CODES
+                      )
+
+
+        
 
 
         # OUTPUT OR CONTINUE
@@ -373,8 +524,11 @@ class Requests_Directory_Scanner():
         # ITER THROUGH HEAD
         data = {}
         valid_keys = [
-                "server", "x-powered-by", "x-frame-options", "content-security-policy", "strict-transport-policy", "refer-policy" 
+                "server", "x-powered-by", "x-frame-options",
+                  "content-security-policy", "strict-transport-policy", "refer-policy" ,
+                  "x-xss-protection", "set-cookie"
                 ]
+
 
 
         # PARSE DATA
@@ -406,7 +560,6 @@ class Requests_Directory_Scanner():
         """
 
 
-
         # DESTROY ERROS
         verbose = False
         cls.failed = False
@@ -415,6 +568,7 @@ class Requests_Directory_Scanner():
 
         if cls.root_url != url:
 
+
             # IMPORTANT VARIABLES // LEARN THESE HEADERS AND THE ATTACKS ASSOCIATED WITH THEM VIA EXPLOIT
             cls.server = ""
             cls.x_powered_by = ""
@@ -422,6 +576,8 @@ class Requests_Directory_Scanner():
             cls.content_security_policy = ""  #  CSP // Missing/weak CSP = easy path to XSS or iframe abuse
             cls.strict_transport_policy = ""  # HSTS // Missing = can allow downgrade attacks or MITM
             cls.refer_policy = ""           # Can leak sensitive internal URLs via headers
+            cls.x_xss_protection = ""
+            cls.set_cookie = ""
 
 
             # I AM ROOT
@@ -452,7 +608,6 @@ class Requests_Directory_Scanner():
                 
                     # GET ROOT HEADERS
                     root_url = f"https://{url}"
-                    console.print
                     response = requests.get(url=root_url, timeout=timeout, allow_redirects=False)
 
                     if response.status_code in valid_status_codes:
@@ -536,23 +691,29 @@ class Requests_Directory_Scanner():
         # CHECK IF DIR_HEADERS == ROOT_HEADERS
         elif headers:
 
-            # IF ALL FIELDS ARE VALID
-            root_sub = 0
 
-            # SET CHECKERS
-            headers_server = True if cls.server == headers['server'] else False
-            headers_x_powered_by = True if cls.x_powered_by == headers['x-powered-by'] else False
+            try:
+                # IF ALL FIELDS ARE VALID
+                root_sub = 0
+                
+                # SET CHECKERS
+                headers_server = True if cls.server == headers['server'] else False
+                headers_x_powered_by = True if cls.x_powered_by == headers['x-powered-by'] else False
 
+                
+                # IF ANY OF THESE GIVE FALSE COULD BE SIGN OF A VULN
+                headers_x_frame_options = True if cls.x_frame_options == headers['x-frame-options'] else False
+                headers_content_security_policy = True if cls.content_security_policy == headers['content-security-policy'] else False
+                headers_strict_transport_policy = True if cls.strict_transport_policy == headers['strict-transport-policy'] else False
+                headers_refer_policy = True if cls.refer_policy == headers['refer-policy'] else False
+                headers_x_xss_protection = True if cls.x_xss_protection == headers['x-xss-protection'] else False
+                headers_set_cookie = True if cls.set_cookie == headers['set-cookie'] else False
             
-            # IF ANY OF THESE GIVE FALSE COULD BE SIGN OF A VULN
-            headers_x_frame_options = True if cls.x_frame_options == headers['x-frame-options'] else False
-            headers_content_security_policy = True if cls.content_security_policy == headers['content-security-policy'] else False
-            headers_strict_transport_policy = True if cls.strict_transport_policy == headers['strict-transport-policy'] else False
-            headers_refer_policy = True if cls.refer_policy == headers['refer-policy'] else False
-            headers_x_xss_protection = True if cls.x_xss_protection == headers['x-xss-protection'] else False
-            headers_set_cookie = True if cls.set_cookie == headers['set-cookie'] else False
+            except Exception as e:
+                console.print(e)
 
 
+    
 
             # AGGREGATE RESULTS
             sub_data = {
@@ -567,7 +728,7 @@ class Requests_Directory_Scanner():
             }
 
             
-
+     
             # THIS WILL TELL THE USER IF SERVER & X-POWERED-BY != ROOT
             if headers_server == True and headers_x_powered_by == True:
 
@@ -585,18 +746,22 @@ class Requests_Directory_Scanner():
             
 
             # FOR OTHER SECURITY HEADERS
-            if headers_x_frame_options == True and headers_content_security_policy == True and headers_strict_transport_policy == True and headers_refer_policy == True and headers_x_xss_protection == True and headers_set_cookie == True:
+            try:
+                if headers_x_frame_options == True and headers_content_security_policy == True and headers_strict_transport_policy == True and headers_refer_policy == True and headers_x_xss_protection == True and headers_set_cookie == True:
 
-                if verbose:
-                    console.print(f"Server Security Headers are Valid\n Root == Sub")
+                    if verbose:
+                        console.print(f"Server Security Headers are Valid\n Root == Sub")
+                    
+
+                    root_sub += 1
                 
+                else:
 
-                root_sub += 1
+                    if verbose:
+                        console.print(f"[bold red]Server Security Headers are not Valid[/bold red]\nRoot != Sub\n{sub_data}")
             
-            else:
-
-                if verbose:
-                    console.print(f"[bold red]Server Security Headers are not Valid[/bold red]\nRoot != Sub\n{data}")
+            except Exception as e:
+                console.print(e)
 
             
 
@@ -630,6 +795,8 @@ class Requests_Directory_Scanner():
 
                 root_sub = randint(0,2) # USE THIS TO TEST LOGIC 
 
+
+
             return "[bold blue]Dir[/bold blue] == [bold green]Sub[/bold green]" if root_sub == 2 else sub_return 
        
         
@@ -651,6 +818,11 @@ class Requests_Directory_Scanner():
         # CLEANSE DATA // PREVENT FUCKUPS
         cls.results_dir_json = {}
         cls.results_dir_txt = []
+        cls.dirs_text = ""
+        cls.subs_given = 0
+        cls.subs_finished = 0
+        cls.current_sub_domain = []
+
 
         # CHECK TO MAKE SURE LIST IS VALID
         if sub_domains:
@@ -673,6 +845,10 @@ class Requests_Directory_Scanner():
                     # DELAY TO PREVENT OVERWHELMING
                     time.sleep(delay)
 
+
+                    # SET STATUS CODE TRACKER
+                    Requests_Directory_Scanner.track_status_codes(sub=domain, dir=False)
+
                     Requests_Directory_Scanner.track_headers(url=domain,timeout=3) # TRACK THAT BIHc
                     Requests_Directory_Scanner.threader(sub_domain=domain, thread_count=thread_count, dir_path=dir_path, timeout=timeout, delay=delay)
 
@@ -692,6 +868,14 @@ class Requests_Directory_Scanner():
                 from nsm_settings import File_Saving
                 File_Saving.push_info(save_data=[cls.results_dir_json, cls.results_dir_txt], save_type="5")
 
+
+
+                # DISCORD SUMMARY --> FILE SENDING
+                from nsm_utilities import File_Handler
+                data = (f"Total Subs with active Dirs: {len(cls.current_sub_domain)} out of {cls.subs_given}")
+                File_Handler.push_info_to_discord(save_data=data, save_type=3)
+
+
                 
                 # RETURN SAVE DATA 
                 return cls.results_dir_json, cls.results_dir_txt
@@ -709,7 +893,7 @@ class Requests_Directory_Scanner():
 
 
 
-# THIS CLASS IS DEAPPRECIATED // USE THE Request_Directory_Scanner  for functional directory enumeration
+# THIS CLASS IS DEAPPRECIATED // USE THE Request_Directory_Scanner <--  for functional directory enumeration
 class Resolver_Directory_Scanner():
 
     """This class will be responsible for performing directory lookups using the dns.resolver libary"""
@@ -925,7 +1109,7 @@ if __name__ == "__main__":
 
         from nsm_target_scanner import Requests_Subdomain_Scanner
 
-        url = "flextrafficschool.com"
+        url = "GMAIL.com"
         
         subs = Requests_Subdomain_Scanner.main(target=url)
         Requests_Directory_Scanner.main(sub_domains=subs)
